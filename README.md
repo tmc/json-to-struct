@@ -1,7 +1,9 @@
 json-to-struct
 ======
 
-json-to-struct attempts to generate go struct definitions from json documents
+json-to-struct attempts to generate go struct definitions from json documents.
+
+Caveat: quite naive and does not handle arrays intelligently.
 
 
 Example
