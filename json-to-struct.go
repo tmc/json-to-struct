@@ -116,10 +116,15 @@ func generateTypes(obj map[string]interface{}, depth int) string {
 		}
 
 		fieldName := fmtFieldName(key)
-		structure += fmt.Sprintf("\n%s %s `json:\"%s\"`",
-			fieldName,
-			valueType,
-			key)
+
+		if fieldName != key {
+			structure += fmt.Sprintf("\n%s %s `json:\"%s\"`",
+				fieldName,
+				valueType,
+				key)
+		} else {
+			structure += fmt.Sprintf("\n%s %s", fieldName, valueType)
+		}
 	}
 	return structure
 }
