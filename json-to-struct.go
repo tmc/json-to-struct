@@ -57,12 +57,13 @@ import (
 )
 
 var (
-	name      = flag.String("name", "Foo", "the name of the struct")
-	pkg       = flag.String("pkg", "main", "the name of the package for the generated code")
-	omitEmpty = flag.Bool("omitempty", true, "if true, emits struct field tags with 'omitempty'")
+	flagName      = flag.String("name", "Foo", "the name of the struct")
+	flagPkg       = flag.String("pkg", "main", "the name of the package for the generated code")
+	flagOmitEmpty = flag.Bool("omitempty", true, "if true, emits struct field tags with 'omitempty'")
 )
 
 type Config struct {
+	// If True, emit "omitempty" tags on output fields.
 	OmitEmpty bool
 }
 
@@ -220,9 +221,9 @@ func main() {
 
 	cfg := &Config{}
 	*cfg = DefaultConfig
-	cfg.OmitEmpty = *omitEmpty
+	cfg.OmitEmpty = *flagOmitEmpty
 
-	if output, err := generate(os.Stdin, *name, *pkg, cfg); err != nil {
+	if output, err := generate(os.Stdin, *flagName, *flagPkg, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "error parsing", err)
 		os.Exit(1)
 	} else {
