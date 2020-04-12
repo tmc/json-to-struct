@@ -6,39 +6,41 @@
 // 	curl -s https://api.github.com/users/tmc | json-to-struct -name=User
 //
 // Output:
-// 	package main
+//  package main
 //
-// 	type User struct {
-// 		AvatarURL         string      `json:"avatar_url"`
-// 		Bio               interface{} `json:"bio"`
-// 		Blog              string      `json:"blog"`
-// 		Company           string      `json:"company"`
-// 		CreatedAt         string      `json:"created_at"`
-// 		Email             string      `json:"email"`
-// 		EventsURL         string      `json:"events_url"`
-// 		Followers         float64     `json:"followers"`
-// 		FollowersURL      string      `json:"followers_url"`
-// 		Following         float64     `json:"following"`
-// 		FollowingURL      string      `json:"following_url"`
-// 		GistsURL          string      `json:"gists_url"`
-// 		GravatarID        string      `json:"gravatar_id"`
-// 		Hireable          bool        `json:"hireable"`
-// 		HtmlURL           string      `json:"html_url"`
-// 		ID                float64     `json:"id"`
-// 		Location          string      `json:"location"`
-// 		Login             string      `json:"login"`
-// 		Name              string      `json:"name"`
-// 		OrganizationsURL  string      `json:"organizations_url"`
-// 		PublicGists       float64     `json:"public_gists"`
-// 		PublicRepos       float64     `json:"public_repos"`
-// 		ReceivedEventsURL string      `json:"received_events_url"`
-// 		ReposURL          string      `json:"repos_url"`
-// 		StarredURL        string      `json:"starred_url"`
-// 		SubscriptionsURL  string      `json:"subscriptions_url"`
-// 		Type              string      `json:"type"`
-// 		UpdatedAt         string      `json:"updated_at"`
-// 		URL               string      `json:"url"`
-// 	}
+//  type GithubUser struct {
+//  	AvatarURL         string      `json:"avatar_url,omitempty"`
+//  	Bio               string      `json:"bio,omitempty"`
+//  	Blog              string      `json:"blog,omitempty"`
+//  	Company           string      `json:"company,omitempty"`
+//  	CreatedAt         string      `json:"created_at,omitempty"`
+//  	Email             interface{} `json:"email,omitempty"`
+//  	EventsURL         string      `json:"events_url,omitempty"`
+//  	Followers         float64     `json:"followers,omitempty"`
+//  	FollowersURL      string      `json:"followers_url,omitempty"`
+//  	Following         float64     `json:"following,omitempty"`
+//  	FollowingURL      string      `json:"following_url,omitempty"`
+//  	GistsURL          string      `json:"gists_url,omitempty"`
+//  	GravatarID        string      `json:"gravatar_id,omitempty"`
+//  	Hireable          bool        `json:"hireable,omitempty"`
+//  	HtmlURL           string      `json:"html_url,omitempty"`
+//  	ID                float64     `json:"id,omitempty"`
+//  	Location          string      `json:"location,omitempty"`
+//  	Login             string      `json:"login,omitempty"`
+//  	Name              string      `json:"name,omitempty"`
+//  	NodeID            string      `json:"node_id,omitempty"`
+//  	OrganizationsURL  string      `json:"organizations_url,omitempty"`
+//  	PublicGists       float64     `json:"public_gists,omitempty"`
+//  	PublicRepos       float64     `json:"public_repos,omitempty"`
+//  	ReceivedEventsURL string      `json:"received_events_url,omitempty"`
+//  	ReposURL          string      `json:"repos_url,omitempty"`
+//  	SiteAdmin         bool        `json:"site_admin,omitempty"`
+//  	StarredURL        string      `json:"starred_url,omitempty"`
+//  	SubscriptionsURL  string      `json:"subscriptions_url,omitempty"`
+//  	Type              string      `json:"type,omitempty"`
+//  	UpdatedAt         string      `json:"updated_at,omitempty"`
+//  	URL               string      `json:"url,omitempty"`
+//  }
 package main
 
 import (
@@ -55,15 +57,27 @@ import (
 )
 
 var (
-	name = flag.String("name", "Foo", "the name of the struct")
-	pkg  = flag.String("pkg", "main", "the name of the package for the generated code")
+	name      = flag.String("name", "Foo", "the name of the struct")
+	pkg       = flag.String("pkg", "main", "the name of the package for the generated code")
+	omitEmpty = flag.Bool("omitempty", true, "if true, emits struct field tags with 'omitempty'")
 )
+
+type Config struct {
+	OmitEmpty bool
+}
+
+var DefaultConfig = Config{
+	OmitEmpty: true,
+}
 
 // Given a JSON string representation of an object and a name structName,
 // attemp to generate a struct definition
-func generate(input io.Reader, structName, pkgName string) ([]byte, error) {
+func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte, error) {
 	var iresult interface{}
 	var result map[string]interface{}
+	if cfg == nil {
+		cfg = &DefaultConfig
+	}
 	if err := json.NewDecoder(input).Decode(&iresult); err != nil {
 		return nil, err
 	}
@@ -84,7 +98,7 @@ func generate(input io.Reader, structName, pkgName string) ([]byte, error) {
 	src := fmt.Sprintf("package %s\ntype %s %s}",
 		pkgName,
 		structName,
-		generateTypes(result, 0))
+		generateTypes(result, 0, cfg))
 	formatted, err := format.Source([]byte(src))
 	if err != nil {
 		err = fmt.Errorf("error formatting: %s, was formatting\n%s", err, src)
@@ -93,7 +107,7 @@ func generate(input io.Reader, structName, pkgName string) ([]byte, error) {
 }
 
 // Generate go struct entries for a map[string]interface{} structure
-func generateTypes(obj map[string]interface{}, depth int) string {
+func generateTypes(obj map[string]interface{}, depth int, cfg *Config) string {
 	structure := "struct {"
 
 	keys := make([]string, 0, len(obj))
@@ -102,25 +116,31 @@ func generateTypes(obj map[string]interface{}, depth int) string {
 	}
 	sort.Strings(keys)
 
+	omitEmptyString := ""
+	if cfg.OmitEmpty {
+		omitEmptyString = ",omitempty"
+	}
 	for _, key := range keys {
 		value := obj[key]
-		valueType := typeForValue(value)
+		valueType := typeForValue(value, cfg)
 
 		//If a nested value, recurse
 		switch value := value.(type) {
 		case []map[string]interface{}:
-			valueType = "[]" + generateTypes(value[0], depth+1) + "}"
+			valueType = "[]" + generateTypes(value[0], depth+1, cfg) + "}"
 		case map[string]interface{}:
-			valueType = generateTypes(value, depth+1) + "}"
+			valueType = generateTypes(value, depth+1, cfg) + "}"
 		}
 
 		fieldName := fmtFieldName(key)
 
 		if fieldName != key {
-			structure += fmt.Sprintf("\n%s %s `json:\"%s,omitempty\"`",
+			structure += fmt.Sprintf("\n%s %s `json:\"%s%s\"`",
 				fieldName,
 				valueType,
-				key)
+				key,
+				omitEmptyString, // Depending on cfg.OmitEmpty, include omitempty.
+			)
 		} else {
 			structure += fmt.Sprintf("\n%s %s", fieldName, valueType)
 		}
@@ -161,7 +181,7 @@ func fmtFieldName(s string) string {
 }
 
 // generate an appropriate struct type entry
-func typeForValue(value interface{}) string {
+func typeForValue(value interface{}, cfg *Config) string {
 	//Check if this is an array
 	if objects, ok := value.([]interface{}); ok {
 		types := make(map[reflect.Type]bool, 0)
@@ -169,11 +189,11 @@ func typeForValue(value interface{}) string {
 			types[reflect.TypeOf(o)] = true
 		}
 		if len(types) == 1 {
-			return "[]" + typeForValue(objects[0])
+			return "[]" + typeForValue(objects[0], cfg)
 		}
 		return "[]interface{}"
 	} else if object, ok := value.(map[string]interface{}); ok {
-		return generateTypes(object, 0) + "}"
+		return generateTypes(object, 0, cfg) + "}"
 	} else if reflect.TypeOf(value) == nil {
 		return "interface{}"
 	}
@@ -198,7 +218,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if output, err := generate(os.Stdin, *name, *pkg); err != nil {
+	cfg := &Config{}
+	*cfg = DefaultConfig
+	cfg.OmitEmpty = *omitEmpty
+
+	if output, err := generate(os.Stdin, *name, *pkg, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "error parsing", err)
 		os.Exit(1)
 	} else {
