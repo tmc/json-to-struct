@@ -75,7 +75,6 @@ var DefaultConfig = Config{
 // attemp to generate a struct definition
 func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte, error) {
 	var iresult interface{}
-	var result map[string]interface{}
 	if cfg == nil {
 		cfg = &DefaultConfig
 	}
@@ -83,20 +82,37 @@ func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte,
 		return nil, err
 	}
 
+	var typ *Type
 	switch iresult := iresult.(type) {
 	case map[string]interface{}:
-		result = iresult
+		typ = generateType(structName, iresult, cfg)
 	case []map[string]interface{}:
-		if len(iresult) > 0 {
-			result = iresult[0]
-		} else {
+		if len(iresult) == 0 {
 			return nil, fmt.Errorf("empty array")
+		}
+		typ = generateType(structName, iresult[0], cfg)
+		for _, r := range iresult[0:] {
+			t2 := generateType(structName, r, cfg)
+			if err := typ.Merge(t2); err != nil {
+				return nil, fmt.Errorf("issue merging: %w", err)
+			}
+		}
+	case []interface{}:
+		// TODO: reduce repetition
+		if len(iresult) == 0 {
+			return nil, fmt.Errorf("empty array")
+		}
+		typ = generateType(structName, iresult[0], cfg)
+		for _, r := range iresult[0:] {
+			t2 := generateType(structName, r, cfg)
+			if err := typ.Merge(t2); err != nil {
+				return nil, fmt.Errorf("issue merging: %w", err)
+			}
 		}
 	default:
 		return nil, fmt.Errorf("unexpected type: %T", iresult)
 	}
 
-	typ := generateType(structName, result, cfg)
 	src := fmt.Sprintf("package %s\ntype %s",
 		pkgName,
 		typ.String())
@@ -107,63 +123,8 @@ func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte,
 	return formatted, err
 }
 
-type Fields []Type
-
-func (f Fields) String() string {
-	result := []string{}
-	for _, field := range f {
-		result = append(result, field.String())
-	}
-	return strings.Join(result, "\n")
-}
-
-type Type struct {
-	Name     string
-	Repeated bool
-	Type     string
-	Tags     map[string]string
-	Children Fields
-	Config   *Config
-}
-
-func (t *Type) GetType() string {
-	if t.Repeated {
-		return "[]" + t.Type
-	}
-	return t.Type
-}
-
-func (t *Type) GetTags() string {
-	if len(t.Tags) == 0 {
-		return ""
-	}
-
-	keys := make([]string, 0, len(t.Tags))
-	for key := range t.Tags {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := []string{}
-	for _, k := range keys {
-		v := t.Tags[k]
-		if k == "json" && t.Config.OmitEmpty {
-			v += ",omitempty"
-		}
-		parts = append(parts, fmt.Sprintf(`%v:"%v"`, k, v))
-	}
-	return fmt.Sprintf("`%v`", strings.Join(parts, ","))
-}
-
-func (t *Type) String() string {
-	if t.Type == "struct" {
-		return fmt.Sprintf(`%v %v {
-%s } %v`, t.Name, t.GetType(), t.Children, t.GetTags())
-	}
-	return fmt.Sprintf("%v %v %v", t.Name, t.GetType(), t.GetTags())
-}
-
-func generateType(name string, value interface{}, cfg *Config) Type {
-	result := Type{Name: name, Config: cfg}
+func generateType(name string, value interface{}, cfg *Config) *Type {
+	result := &Type{Name: name, Config: cfg}
 	switch v := value.(type) {
 	case []interface{}:
 		types := make(map[reflect.Type]bool, 0)
@@ -191,8 +152,8 @@ func generateType(name string, value interface{}, cfg *Config) Type {
 	return result
 }
 
-func generateFieldTypes(obj map[string]interface{}, cfg *Config) []Type {
-	result := []Type{}
+func generateFieldTypes(obj map[string]interface{}, cfg *Config) []*Type {
+	result := []*Type{}
 
 	keys := make([]string, 0, len(obj))
 	for key := range obj {
@@ -201,7 +162,7 @@ func generateFieldTypes(obj map[string]interface{}, cfg *Config) []Type {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		var typ Type
+		var typ *Type
 		switch v := obj[key].(type) {
 		case map[string]interface{}:
 			typ = generateType(key, v, cfg)

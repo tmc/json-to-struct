@@ -34,6 +34,7 @@ func TestGenerate(t *testing.T) {
 		{name: "test_simple_json"},
 		{name: "test_nested_json"},
 		{name: "test_nullable_json"},
+		{name: "test_repeated_json"},
 		{name: "test_simple_array"},
 		{name: "test_invalid_field_chars"},
 		{name: "more_complex_example"},
