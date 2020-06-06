@@ -3,6 +3,7 @@ json-to-struct
 
 json-to-struct attempts to generate go struct definitions from json documents
 
+[Online Version Here](https://tmc.github.io/json-to-struct/)
 
 Example
 ----------

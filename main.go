@@ -70,8 +70,6 @@ func main() {
 	*cfg = DefaultConfig
 	cfg.OmitEmpty = *flagOmitEmpty
 
-	fmt.Println("environ:", os.Environ())
-
 	if output, err := generate(os.Stdin, *flagName, *flagPkg, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "error parsing", err)
 		os.Exit(1)
