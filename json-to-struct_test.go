@@ -32,6 +32,7 @@ func TestGenerate(t *testing.T) {
 	}{
 		{name: "empty", wantErr: true},
 		{name: "test_simple_json"},
+		{name: "test_nested_json"},
 		{name: "test_nullable_json"},
 		{name: "test_simple_array"},
 		{name: "test_invalid_field_chars"},
@@ -49,6 +50,7 @@ func TestGenerate(t *testing.T) {
 					return
 				}
 				t.Errorf("generate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("generate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			goldenFile := tt.name + ".go"
@@ -57,8 +59,9 @@ func TestGenerate(t *testing.T) {
 				writeTestData(t, goldenFile, got)
 				return
 			}
-			want := openTestData(t, goldenFile)
-			if diff := cmp.Diff(want, got); diff != "" {
+			want := string(openTestData(t, goldenFile))
+			gotStr := string(got)
+			if diff := cmp.Diff(want, gotStr); diff != "" {
 				t.Errorf("generate() mismatch (-want +got):\n%s", diff)
 			}
 		})
