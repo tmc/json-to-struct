@@ -45,21 +45,13 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"go/format"
 	"io"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"unicode"
-)
-
-var (
-	flagName      = flag.String("name", "Foo", "the name of the struct")
-	flagPkg       = flag.String("pkg", "main", "the name of the package for the generated code")
-	flagOmitEmpty = flag.Bool("omitempty", true, "if true, emits struct field tags with 'omitempty'")
 )
 
 type Config struct {
@@ -218,34 +210,4 @@ func fmtFieldName(s string) string {
 		}
 	}
 	return string(runes)
-}
-
-// Return true if os.Stdin appears to be interactive
-func isInteractive() bool {
-	fileInfo, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return fileInfo.Mode()&(os.ModeCharDevice|os.ModeCharDevice) != 0
-}
-
-func main() {
-	flag.Parse()
-
-	if isInteractive() {
-		flag.Usage()
-		fmt.Fprintln(os.Stderr, "Expects input on stdin")
-		os.Exit(1)
-	}
-
-	cfg := &Config{}
-	*cfg = DefaultConfig
-	cfg.OmitEmpty = *flagOmitEmpty
-
-	if output, err := generate(os.Stdin, *flagName, *flagPkg, cfg); err != nil {
-		fmt.Fprintln(os.Stderr, "error parsing", err)
-		os.Exit(1)
-	} else {
-		fmt.Print(string(output))
-	}
 }
