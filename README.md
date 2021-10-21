@@ -5,6 +5,10 @@ json-to-struct attempts to generate go struct definitions from json documents
 
 [Online Version Here](https://tmc.github.io/json-to-struct/)
 
+npmaile edits:
+----------
+Changed the logic around fields that differ in arrays to allow for pointers to structs if nilable
+
 Example
 ----------
 
@@ -55,6 +59,7 @@ $ go get github.com/tmc/json-to-struct
 Related Work
 ------------
 
+github.com/tmc/json-to-struct
 github.com/ChimeraCoder/gojson
 github.com/str1ngs/jflect 
 

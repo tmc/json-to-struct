@@ -38,6 +38,7 @@ func TestGenerate(t *testing.T) {
 		{name: "test_simple_array"},
 		{name: "test_invalid_field_chars"},
 		{name: "more_complex_example"},
+		{name: "test_mixed_nulls"},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable

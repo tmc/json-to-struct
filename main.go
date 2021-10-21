@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 // json-to-struct generates go struct defintions from JSON documents
