@@ -136,7 +136,7 @@ func generateType(name string, value interface{}, cfg *Config) *Type {
 		result.Children = generateFieldTypes(v, cfg)
 	default:
 		if reflect.TypeOf(value) == nil {
-			result.Type = "interface{}"
+			result.Type = "nil"
 		} else {
 			result.Type = reflect.TypeOf(value).Name()
 		}

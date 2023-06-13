@@ -26,6 +26,9 @@ type Type struct {
 }
 
 func (t *Type) GetType() string {
+	if t.Type == "nil"{
+		t.Type = "interface{}"
+	}
 	if t.Repeated {
 		return "[]" + t.Type
 	}
@@ -62,9 +65,17 @@ func (t *Type) String() string {
 }
 
 func (t *Type) Merge(t2 *Type) error {
-	if t.Type != t2.Type {
-		t.Type = "interface{}"
-		return nil
+	if strings.Trim(t.Type,"*") != strings.Trim(t2.Type,"*") {
+		if t.Type == "nil" {
+			t.Type = fmt.Sprintf("*%s", strings.Trim(t2.Type,"*"))
+			return nil
+		} else if t2.Type == "nil" {
+			t.Type = fmt.Sprintf("*%s", strings.Trim(t.Type,"*"))
+			return nil
+		} else {
+			t.Type = "interface{}"
+			return nil
+		}
 	}
 
 	fields := map[string]*Type{}
