@@ -30,6 +30,10 @@ type Type struct {
 	Tags []string
 }
 
+func (t *Type) MarkNullable() {
+	t.Nullable = true
+}
+
 func NullType() *Type {
 	return &Type{TypeType: Null, Nullable: false}
 }
@@ -146,9 +150,15 @@ func (t *Type) Merge(t2 Type) error {
 		return t.Array.Merge(*t2.Array)
 	}
 	if t.TypeType == Object {
+		for k, v := range t.Object {
+			if _, ok := t2.Object[k]; !ok {
+				v.MarkNullable()
+			}
+		}
 		for k2, v2 := range t2.Object {
 			if v, ok := t.Object[k2]; !ok {
 				t.Object[k2] = v2
+				t.Object[k2].MarkNullable()
 			} else {
 				v.Merge(*v2)
 			}
