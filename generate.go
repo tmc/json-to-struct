@@ -50,7 +50,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"log"
 	"strings"
 	"unicode"
 )
@@ -84,8 +83,6 @@ func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte,
 		pkgName,
 		structName,
 		typ.GoString())
-
-	log.Printf("GENERATED: %s\n\n\n", src)
 
 	formatted, err := format.Source([]byte(src))
 	if err != nil {
