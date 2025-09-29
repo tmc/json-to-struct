@@ -57,11 +57,7 @@ func (t *Type) GetTags() string {
 }
 
 func (t *Type) String() string {
-	if t.Type == "struct" {
-		return fmt.Sprintf(`%v %v {
-%s } %v`, t.Name, t.GetType(), t.Children, t.GetTags())
-	}
-	return fmt.Sprintf("%v %v %v", t.Name, t.GetType(), t.GetTags())
+	return t.templateString()
 }
 
 func (t *Type) Merge(t2 *Type) error {

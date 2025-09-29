@@ -105,7 +105,7 @@ func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte,
 		return nil, fmt.Errorf("unexpected type: %T", iresult)
 	}
 
-	src := fmt.Sprintf("package %s\ntype %s",
+	src := fmt.Sprintf("package %s\n%s",
 		pkgName,
 		typ.String())
 	formatted, err := format.Source([]byte(src))
