@@ -41,7 +41,7 @@ type FieldStat struct {
 	TotalCount int             // how many times this field appeared
 	IsArray    map[string]bool // type -> whether it was seen as array
 	JsonName   string          // original JSON field name
-	NestedObjs []interface{}   // store nested objects for proper struct generation
+	NestedObjs []any           // store nested objects for proper struct generation
 }
 
 // StructStats tracks field statistics for building consolidated struct
@@ -92,7 +92,7 @@ func NewStructStats() *StructStats {
 }
 
 // ProcessValue processes a single value and updates field statistics
-func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) {
+func (s *StructStats) ProcessValue(key string, value any, g *generator) {
 	fieldName := g.fmtFieldName(key)
 
 	if s.Fields[fieldName] == nil {
@@ -101,7 +101,7 @@ func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) 
 			JsonName:   key,
 			Types:      make(map[string]int),
 			IsArray:    make(map[string]bool),
-			NestedObjs: make([]interface{}, 0),
+			NestedObjs: make([]any, 0),
 		}
 		// Track the order of first encounter
 		s.FieldOrder = append(s.FieldOrder, fieldName)
@@ -111,7 +111,7 @@ func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) 
 	field.TotalCount++
 
 	switch v := value.(type) {
-	case []interface{}:
+	case []any:
 		if len(v) > 0 {
 			elementType := g.getGoType(v[0])
 			field.Types[elementType]++
@@ -121,10 +121,10 @@ func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) 
 				field.NestedObjs = append(field.NestedObjs, v[0])
 			}
 		} else {
-			field.Types["interface{}"]++
-			field.IsArray["interface{}"] = true
+			field.Types["any"]++
+			field.IsArray["any"] = true
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		field.Types["struct"]++
 		// Store the nested object for proper struct generation
 		field.NestedObjs = append(field.NestedObjs, v)
@@ -135,7 +135,7 @@ func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) 
 }
 
 // ProcessJSON processes a single JSON object
-func (s *StructStats) ProcessJSON(data map[string]interface{}, g *generator) {
+func (s *StructStats) ProcessJSON(data map[string]any, g *generator) {
 	s.TotalLines++
 	for key, value := range data {
 		s.ProcessValue(key, value, g)
@@ -143,7 +143,7 @@ func (s *StructStats) ProcessJSON(data map[string]interface{}, g *generator) {
 }
 
 // getGoType returns the Go type name for a JSON value
-func (g *generator) getGoType(value interface{}) string {
+func (g *generator) getGoType(value any) string {
 	if value == nil {
 		return "nil"
 	}
@@ -155,12 +155,12 @@ func (g *generator) getGoType(value interface{}) string {
 		return "float64"
 	case string:
 		return "string"
-	case map[string]interface{}:
+	case map[string]any:
 		return "struct"
-	case []interface{}:
-		return "[]interface{}" // This will be refined by the caller
+	case []any:
+		return "[]any" // This will be refined by the caller
 	default:
-		return "interface{}"
+		return "any"
 	}
 }
 
@@ -185,7 +185,7 @@ func (f *FieldStat) GetMostCommonType() string {
 	}
 
 	if maxType == "" {
-		maxType = "interface{}"
+		maxType = "any"
 	}
 
 	return maxType
@@ -217,23 +217,23 @@ func (g *generator) generate(output io.Writer, input io.Reader) error {
 	}
 
 	// Try to parse as different JSON structures
-	var iresult interface{}
+	var iresult any
 	if err := json.Unmarshal(inputBytes, &iresult); err != nil {
 		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 
 	switch result := iresult.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		// Single JSON object
 		stats.ProcessJSON(result, g)
-	case []interface{}:
+	case []any:
 		// Array of objects - process each one
 		for _, item := range result {
-			if obj, ok := item.(map[string]interface{}); ok {
+			if obj, ok := item.(map[string]any); ok {
 				stats.ProcessJSON(obj, g)
 			}
 		}
-	case []map[string]interface{}:
+	case []map[string]any:
 		// Array of maps - process each one
 		for _, obj := range result {
 			stats.ProcessJSON(obj, g)
@@ -392,7 +392,7 @@ func (g *generator) fmtFieldName(s string) string {
 }
 
 // generateFieldTypesFromMap creates Type structures from a map, similar to legacy generateFieldTypes
-func (g *generator) generateFieldTypesFromMap(obj map[string]interface{}) []*Type {
+func (g *generator) generateFieldTypesFromMap(obj map[string]any) []*Type {
 	result := []*Type{}
 
 	keys := make([]string, 0, len(obj))
@@ -414,10 +414,10 @@ func (g *generator) generateFieldTypesFromMap(obj map[string]interface{}) []*Typ
 }
 
 // generateTypeFromValue creates a Type from a value, similar to legacy generateType
-func (g *generator) generateTypeFromValue(name string, value interface{}) *Type {
+func (g *generator) generateTypeFromValue(name string, value any) *Type {
 	result := &Type{Name: name, Config: g}
 	switch v := value.(type) {
-	case []interface{}:
+	case []any:
 		result.Repeated = true
 		if len(v) > 0 {
 			// For now, handle arrays of basic types
@@ -425,9 +425,9 @@ func (g *generator) generateTypeFromValue(name string, value interface{}) *Type 
 			result.Type = t.Type
 			result.Children = t.Children
 		} else {
-			result.Type = "interface{}"
+			result.Type = "any"
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		result.Type = "struct"
 		result.Children = g.generateFieldTypesFromMap(v)
 	default:
@@ -441,14 +441,14 @@ func (g *generator) generateTypeFromValue(name string, value interface{}) *Type 
 }
 
 // mergeNestedObjects merges multiple nested objects into a single Type structure
-func (g *generator) mergeNestedObjects(nestedObjs []interface{}, name string) []*Type {
+func (g *generator) mergeNestedObjects(nestedObjs []any, name string) []*Type {
 	if len(nestedObjs) == 0 {
 		return nil
 	}
 
 	// Create a type from the first object
 	var baseType *Type
-	if firstMap, ok := nestedObjs[0].(map[string]interface{}); ok {
+	if firstMap, ok := nestedObjs[0].(map[string]any); ok {
 		baseType = g.generateTypeFromValue(name, firstMap)
 	} else {
 		return nil
@@ -456,7 +456,7 @@ func (g *generator) mergeNestedObjects(nestedObjs []interface{}, name string) []
 
 	// Merge with remaining objects
 	for i := 1; i < len(nestedObjs); i++ {
-		if objMap, ok := nestedObjs[i].(map[string]interface{}); ok {
+		if objMap, ok := nestedObjs[i].(map[string]any); ok {
 			nextType := g.generateTypeFromValue(name, objMap)
 			if err := baseType.Merge(nextType); err != nil {
 				// If merge fails, continue with what we have

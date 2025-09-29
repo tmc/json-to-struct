@@ -1,3 +1,4 @@
+//go:build js
 // +build js
 
 package main
@@ -7,7 +8,7 @@ import (
 	"syscall/js"
 )
 
-func jsonToStructFunction(this js.Value, p []js.Value) interface{} {
+func jsonToStructFunction(this js.Value, p []js.Value) any {
 	in := strings.NewReader(p[0].String())
 	if output, err := generate(in, "Type", "main", &generator{}); err != nil {
 		return js.ValueOf(err.Error())

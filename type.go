@@ -27,7 +27,7 @@ type Type struct {
 
 func (t *Type) GetType() string {
 	if t.Type == "nil" {
-		t.Type = "interface{}"
+		t.Type = "any"
 	}
 	if t.Repeated {
 		return "[]" + t.Type
@@ -72,7 +72,7 @@ func (t *Type) Merge(t2 *Type) error {
 			t.Type = fmt.Sprintf("*%s", strings.Trim(t.Type, "*"))
 			return nil
 		} else {
-			t.Type = "interface{}"
+			t.Type = "any"
 			return nil
 		}
 	}

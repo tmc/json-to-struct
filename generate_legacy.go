@@ -18,7 +18,7 @@ func init() {
 }
 
 func generate(input io.Reader, structName, pkgName string, cfg *generator) ([]byte, error) {
-	var iresult interface{}
+	var iresult any
 	if cfg == nil {
 		cfg = &generator{OmitEmpty: true}
 	}
@@ -28,9 +28,9 @@ func generate(input io.Reader, structName, pkgName string, cfg *generator) ([]by
 
 	var typ *Type
 	switch iresult := iresult.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		typ = generateType(structName, iresult, cfg)
-	case []map[string]interface{}:
+	case []map[string]any:
 		if len(iresult) == 0 {
 			return nil, fmt.Errorf("empty array")
 		}
@@ -41,7 +41,7 @@ func generate(input io.Reader, structName, pkgName string, cfg *generator) ([]by
 				return nil, fmt.Errorf("issue merging: %w", err)
 			}
 		}
-	case []interface{}:
+	case []any:
 		// TODO: reduce repetition
 		if len(iresult) == 0 {
 			return nil, fmt.Errorf("empty array")
@@ -65,10 +65,10 @@ func generate(input io.Reader, structName, pkgName string, cfg *generator) ([]by
 	return formatted, err
 }
 
-func generateType(name string, value interface{}, cfg *generator) *Type {
+func generateType(name string, value any, cfg *generator) *Type {
 	result := &Type{Name: name, Config: cfg}
 	switch v := value.(type) {
-	case []interface{}:
+	case []any:
 		types := make(map[reflect.Type]bool, 0)
 		for _, o := range v {
 			types[reflect.TypeOf(o)] = true
@@ -79,9 +79,9 @@ func generateType(name string, value interface{}, cfg *generator) *Type {
 			result.Type = t.Type
 			result.Children = t.Children
 		} else {
-			result.Type = "interface{}"
+			result.Type = "any"
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		result.Type = "struct"
 		result.Children = generateFieldTypes(v, cfg)
 	default:
@@ -94,7 +94,7 @@ func generateType(name string, value interface{}, cfg *generator) *Type {
 	return result
 }
 
-func generateFieldTypes(obj map[string]interface{}, cfg *generator) []*Type {
+func generateFieldTypes(obj map[string]any, cfg *generator) []*Type {
 	result := []*Type{}
 
 	keys := make([]string, 0, len(obj))
@@ -106,7 +106,7 @@ func generateFieldTypes(obj map[string]interface{}, cfg *generator) []*Type {
 	for _, key := range keys {
 		var typ *Type
 		switch v := obj[key].(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			typ = generateType(key, v, cfg)
 		default:
 			typ = generateType(key, obj[key], cfg)
@@ -120,7 +120,6 @@ func generateFieldTypes(obj map[string]interface{}, cfg *generator) []*Type {
 	}
 	return result
 }
-
 
 func fmtFieldName(s string) string {
 	uppercaseFixups := map[string]bool{"id": true, "url": true}

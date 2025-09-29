@@ -164,4 +164,3 @@ func TestTemplates(t *testing.T) {
 		t.Errorf("Embedded templates should not contain header comment, got:\n%s", got2Str)
 	}
 }
-
