@@ -1,0 +1,142 @@
+# Original test suite coverage
+
+legacy-compat: Contains original test cases that are compatible with legacy test approach.
+
+-- more_complex_example.go --
+package test_package
+
+type more_complex_example struct {
+	AvatarURL         string  `json:"avatar_url,omitempty"`
+	Bio               any     `json:"bio,omitempty"`
+	Blog              string  `json:"blog,omitempty"`
+	Company           string  `json:"company,omitempty"`
+	CreatedAt         string  `json:"created_at,omitempty"`
+	Email             string  `json:"email,omitempty"`
+	EventsURL         string  `json:"events_url,omitempty"`
+	Followers         float64 `json:"followers,omitempty"`
+	FollowersURL      string  `json:"followers_url,omitempty"`
+	Following         float64 `json:"following,omitempty"`
+	FollowingURL      string  `json:"following_url,omitempty"`
+	GistsURL          string  `json:"gists_url,omitempty"`
+	GravatarID        string  `json:"gravatar_id,omitempty"`
+	Hireable          bool    `json:"hireable,omitempty"`
+	HtmlURL           string  `json:"html_url,omitempty"`
+	ID                float64 `json:"id,omitempty"`
+	Location          string  `json:"location,omitempty"`
+	Login             string  `json:"login,omitempty"`
+	Name              string  `json:"name,omitempty"`
+	OrganizationsURL  string  `json:"organizations_url,omitempty"`
+	PublicGists       float64 `json:"public_gists,omitempty"`
+	PublicRepos       float64 `json:"public_repos,omitempty"`
+	ReceivedEventsURL string  `json:"received_events_url,omitempty"`
+	ReposURL          string  `json:"repos_url,omitempty"`
+	StarredURL        string  `json:"starred_url,omitempty"`
+	SubscriptionsURL  string  `json:"subscriptions_url,omitempty"`
+	Type              string  `json:"type,omitempty"`
+	UpdatedAt         string  `json:"updated_at,omitempty"`
+	URL               string  `json:"url,omitempty"`
+}
+-- test_invalid_field_chars.go --
+package test_package
+
+type test_invalid_field_chars struct {
+	Foo string `json:"foo,omitempty"`
+}
+-- test_mixed_nulls.go --
+package test_package
+
+type test_mixed_nulls struct {
+	Bar *float64 `json:"bar,omitempty"`
+}
+-- test_nested_json.go --
+package test_package
+
+type test_nested_json struct {
+	Baz []float64 `json:"baz,omitempty"`
+	Foo struct {
+		Bar float64 `json:"bar,omitempty"`
+	} `json:"foo,omitempty"`
+}
+-- test_nullable_json.go --
+package test_package
+
+type test_nullable_json struct {
+	Foo []struct {
+		Bar float64 `json:"bar,omitempty"`
+	} `json:"foo,omitempty"`
+}
+-- test_repeated_json.go --
+package test_package
+
+type test_repeated_json struct {
+	Foo float64 `json:"foo,omitempty"`
+	Bar float64 `json:"bar,omitempty"`
+	Baz struct {
+		Zap bool `json:"zap,omitempty"`
+	} `json:"baz,omitempty"`
+}
+-- test_simple_array.go --
+package test_package
+
+type test_simple_array struct {
+	Baz any    `json:"baz,omitempty"`
+	Foo string `json:"foo,omitempty"`
+}
+-- test_simple_json.go --
+package test_package
+
+type test_simple_json struct {
+	F_O_O float64 `json:"f.o-o,omitempty"`
+}
+-- empty.json --
+-- more_complex_example.json --
+{
+  "login": "tmc",
+  "id": 3977,
+  "avatar_url": "https://1.gravatar.com/avatar/68f0049842700597b89972e1fbf6f542?d=https%3A%2F%2Fidenticons.github.com%2F7d571e5c15bad5ef8c4352ce7a1d9e78.png",
+  "gravatar_id": "68f0049842700597b89972e1fbf6f542",
+  "url": "https://api.github.com/users/tmc",
+  "html_url": "https://github.com/tmc",
+  "followers_url": "https://api.github.com/users/tmc/followers",
+  "following_url": "https://api.github.com/users/tmc/following{/other_user}",
+  "gists_url": "https://api.github.com/users/tmc/gists{/gist_id}",
+  "starred_url": "https://api.github.com/users/tmc/starred{/owner}{/repo}",
+  "subscriptions_url": "https://api.github.com/users/tmc/subscriptions",
+  "organizations_url": "https://api.github.com/users/tmc/orgs",
+  "repos_url": "https://api.github.com/users/tmc/repos",
+  "events_url": "https://api.github.com/users/tmc/events{/privacy}",
+  "received_events_url": "https://api.github.com/users/tmc/received_events",
+  "type": "User",
+  "name": "Travis Cline",
+  "company": "Facebook",
+  "blog": "",
+  "location": "lawrence, ks",
+  "email": "travis.cline@gmail.com",
+  "hireable": true,
+  "bio": null,
+  "public_repos": 87,
+  "followers": 103,
+  "following": 88,
+  "created_at": "2008-03-27T15:49:13Z",
+  "updated_at": "2013-09-05T00:03:43Z",
+  "public_gists": 44
+}
+-- test_invalid_field_chars.json --
+{"foo" : "bar"}
+-- test_mixed_nulls.json --
+[{"bar" : 85},{"bar" : null},{"bar" : 81}]
+-- test_nested_json.json --
+{"foo" : {"bar": 24}, "baz" : [42,43]}
+-- test_nullable_json.json --
+{"foo" : [{"bar": 24}, {"bar" : 42}]}
+-- test_repeated_json.json --
+[
+  {"foo" : 42},
+  {"foo" : 42, "bar": 22},
+  {"foo" : 42, "baz": {}},
+  {"foo" : 42, "baz": {"zap": true}}
+]
+-- test_simple_array.json --
+{"foo" : "bar", "baz" : null}
+-- test_simple_json.json --
+{"f.o-o" : 42}

@@ -1,0 +1,419 @@
+This txtar archive contains exotic and edge case JSON inputs to test the generator's robustness.
+
+-- unicode_fields.json --
+{
+  "🚀": "rocket",
+  "café": "coffee",
+  "東京": "tokyo",
+  "Москва": "moscow",
+  "ñoño": "spanish",
+  "naïve": "french"
+}
+
+-- deeply_nested.json --
+{
+  "level1": {
+    "level2": {
+      "level3": {
+        "level4": {
+          "level5": {
+            "level6": {
+              "level7": {
+                "level8": {
+                  "level9": {
+                    "level10": {
+                      "deep_value": "found it!"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+-- mixed_array_types.json --
+{
+  "mixed": [
+    "string",
+    42,
+    3.14,
+    true,
+    null,
+    {"nested": "object"},
+    ["nested", "array"]
+  ]
+}
+
+-- extreme_numbers.json --
+{
+  "big_int": 9223372036854775807,
+  "negative": -9223372036854775808,
+  "zero": 0,
+  "float_precision": 3.141592653589793238462643383279,
+  "scientific": 1.23e10,
+  "negative_scientific": -4.56e-7
+}
+
+-- special_strings.json --
+{
+  "empty": "",
+  "whitespace": "   \t\n\r   ",
+  "quotes": "\"quoted\" and 'single'",
+  "backslashes": "\\path\\to\\file",
+  "unicode_escape": "\u0048\u0065\u006C\u006C\u006F",
+  "newlines": "line1\nline2\nline3",
+  "emoji": "👋🌍🚀💻🎉",
+  "special_chars": "!@#$%^&*()_+-=[]{}|;:,.<>?"
+}
+
+-- boolean_variations.json --
+{
+  "true_val": true,
+  "false_val": false,
+  "string_true": "true",
+  "string_false": "false",
+  "number_one": 1,
+  "number_zero": 0
+}
+
+-- null_variations.json --
+{
+  "explicit_null": null,
+  "string_null": "null",
+  "empty_object": {},
+  "empty_array": [],
+  "nested_nulls": {
+    "inner": null,
+    "array_with_nulls": [null, "value", null]
+  }
+}
+
+-- complex_arrays.json --
+{
+  "array_of_objects": [
+    {"id": 1, "name": "first"},
+    {"id": 2, "name": "second", "extra": "field"},
+    {"id": 3, "different": "structure"}
+  ],
+  "nested_arrays": [
+    [1, 2, 3],
+    ["a", "b", "c"],
+    [true, false, null]
+  ],
+  "mixed_nested": [
+    {"array": [1, 2, 3]},
+    {"object": {"nested": true}},
+    {"mixed": [{"deep": "value"}]}
+  ]
+}
+
+-- numeric_strings.json --
+{
+  "looks_like_int": "123",
+  "looks_like_float": "45.67",
+  "leading_zero": "007",
+  "phone_number": "+1-555-123-4567",
+  "zip_code": "12345-6789",
+  "version": "1.2.3"
+}
+
+-- reserved_keywords.json --
+{
+  "type": "keyword",
+  "func": "function",
+  "var": "variable",
+  "const": "constant",
+  "package": "pkg",
+  "import": "imp",
+  "interface": "iface",
+  "struct": "structure",
+  "chan": "channel",
+  "go": "goroutine"
+}
+
+-- case_variations.json --
+{
+  "camelCase": "camel",
+  "PascalCase": "pascal",
+  "snake_case": "snake",
+  "kebab-case": "kebab",
+  "SCREAMING_SNAKE": "screaming",
+  "Mixed_Case-Types": "mixed",
+  "dotted.field": "dotted",
+  "spaced field": "spaced"
+}
+
+-- large_object.json --
+{
+  "field001": "value001", "field002": "value002", "field003": "value003", "field004": "value004", "field005": "value005",
+  "field006": "value006", "field007": "value007", "field008": "value008", "field009": "value009", "field010": "value010",
+  "field011": "value011", "field012": "value012", "field013": "value013", "field014": "value014", "field015": "value015",
+  "field016": "value016", "field017": "value017", "field018": "value018", "field019": "value019", "field020": "value020",
+  "nested": {
+    "subfield001": 1, "subfield002": 2, "subfield003": 3, "subfield004": 4, "subfield005": 5,
+    "subfield006": 6, "subfield007": 7, "subfield008": 8, "subfield009": 9, "subfield010": 10
+  }
+}
+
+-- recursive_structure.json --
+{
+  "name": "root",
+  "children": [
+    {
+      "name": "child1",
+      "children": [
+        {
+          "name": "grandchild1",
+          "children": []
+        },
+        {
+          "name": "grandchild2",
+          "children": [
+            {
+              "name": "great-grandchild",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "child2",
+      "children": []
+    }
+  ]
+}
+
+-- single_value_types.json --
+"just a string"
+
+-- number_only.json --
+42
+
+-- boolean_only.json --
+true
+
+-- null_only.json --
+null
+
+-- empty_array_only.json --
+[]
+
+-- array_of_primitives.json --
+[1, "two", 3.0, true, null]
+
+-- inconsistent_objects.json --
+[
+  {"a": 1, "b": 2},
+  {"a": 1, "c": 3},
+  {"b": 2, "d": 4},
+  {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
+]
+-- unicode_fields.go --
+package test_package
+
+type unicode_fields struct {
+	Café   string `json:"café,omitempty"`
+	Naïve  string `json:"naïve,omitempty"`
+	Ñoño   string `json:"ñoño,omitempty"`
+	Москва string
+	東京     string
+	_      string `json:"🚀,omitempty"`
+}
+-- large_object.go --
+package test_package
+
+type large_object struct {
+	Field001 string `json:"field001,omitempty"`
+	Field002 string `json:"field002,omitempty"`
+	Field003 string `json:"field003,omitempty"`
+	Field004 string `json:"field004,omitempty"`
+	Field005 string `json:"field005,omitempty"`
+	Field006 string `json:"field006,omitempty"`
+	Field007 string `json:"field007,omitempty"`
+	Field008 string `json:"field008,omitempty"`
+	Field009 string `json:"field009,omitempty"`
+	Field010 string `json:"field010,omitempty"`
+	Field011 string `json:"field011,omitempty"`
+	Field012 string `json:"field012,omitempty"`
+	Field013 string `json:"field013,omitempty"`
+	Field014 string `json:"field014,omitempty"`
+	Field015 string `json:"field015,omitempty"`
+	Field016 string `json:"field016,omitempty"`
+	Field017 string `json:"field017,omitempty"`
+	Field018 string `json:"field018,omitempty"`
+	Field019 string `json:"field019,omitempty"`
+	Field020 string `json:"field020,omitempty"`
+	Nested   struct {
+		Subfield001 float64 `json:"subfield001,omitempty"`
+		Subfield002 float64 `json:"subfield002,omitempty"`
+		Subfield003 float64 `json:"subfield003,omitempty"`
+		Subfield004 float64 `json:"subfield004,omitempty"`
+		Subfield005 float64 `json:"subfield005,omitempty"`
+		Subfield006 float64 `json:"subfield006,omitempty"`
+		Subfield007 float64 `json:"subfield007,omitempty"`
+		Subfield008 float64 `json:"subfield008,omitempty"`
+		Subfield009 float64 `json:"subfield009,omitempty"`
+		Subfield010 float64 `json:"subfield010,omitempty"`
+	} `json:"nested,omitempty"`
+}
+-- inconsistent_objects.go --
+package test_package
+
+type inconsistent_objects struct {
+	A float64 `json:"a,omitempty"`
+	B float64 `json:"b,omitempty"`
+	C float64 `json:"c,omitempty"`
+	D float64 `json:"d,omitempty"`
+	E float64 `json:"e,omitempty"`
+}
+-- deeply_nested.go --
+package test_package
+
+type deeply_nested struct {
+	Level1 struct {
+		Level2 struct {
+			Level3 struct {
+				Level4 struct {
+					Level5 struct {
+						Level6 struct {
+							Level7 struct {
+								Level8 struct {
+									Level9 struct {
+										Level10 struct {
+											DeepValue string `json:"deep_value,omitempty"`
+										} `json:"level10,omitempty"`
+									} `json:"level9,omitempty"`
+								} `json:"level8,omitempty"`
+							} `json:"level7,omitempty"`
+						} `json:"level6,omitempty"`
+					} `json:"level5,omitempty"`
+				} `json:"level4,omitempty"`
+			} `json:"level3,omitempty"`
+		} `json:"level2,omitempty"`
+	} `json:"level1,omitempty"`
+}
+-- extreme_numbers.go --
+package test_package
+
+type extreme_numbers struct {
+	BigInt             float64 `json:"big_int,omitempty"`
+	FloatPrecision     float64 `json:"float_precision,omitempty"`
+	Negative           float64 `json:"negative,omitempty"`
+	NegativeScientific float64 `json:"negative_scientific,omitempty"`
+	Scientific         float64 `json:"scientific,omitempty"`
+	Zero               float64 `json:"zero,omitempty"`
+}
+-- complex_arrays.go --
+package test_package
+
+type complex_arrays struct {
+	ArrayOfObjects []struct {
+		ID   float64 `json:"id,omitempty"`
+		Name string  `json:"name,omitempty"`
+	} `json:"array_of_objects,omitempty"`
+	MixedNested []struct {
+		Array []float64 `json:"array,omitempty"`
+	} `json:"mixed_nested,omitempty"`
+	NestedArrays [][]any `json:"nested_arrays,omitempty"`
+}
+-- reserved_keywords.go --
+package test_package
+
+type reserved_keywords struct {
+	Chan      string `json:"chan,omitempty"`
+	Const     string `json:"const,omitempty"`
+	Func      string `json:"func,omitempty"`
+	Go        string `json:"go,omitempty"`
+	Import    string `json:"import,omitempty"`
+	Interface string `json:"interface,omitempty"`
+	Package   string `json:"package,omitempty"`
+	Struct    string `json:"struct,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Var       string `json:"var,omitempty"`
+}
+-- case_variations.go --
+package test_package
+
+type case_variations struct {
+	MixedCase_Types string `json:"Mixed_Case-Types,omitempty"`
+	PascalCase      string
+	SCREAMINGSNAKE  string `json:"SCREAMING_SNAKE,omitempty"`
+	CamelCase       string `json:"camelCase,omitempty"`
+	Dotted_Field    string `json:"dotted.field,omitempty"`
+	Kebab_Case      string `json:"kebab-case,omitempty"`
+	SnakeCase       string `json:"snake_case,omitempty"`
+	Spaced_Field    string `json:"spaced field,omitempty"`
+}
+-- special_strings.go --
+package test_package
+
+type special_strings struct {
+	Backslashes   string `json:"backslashes,omitempty"`
+	Emoji         string `json:"emoji,omitempty"`
+	Empty         string `json:"empty,omitempty"`
+	Newlines      string `json:"newlines,omitempty"`
+	Quotes        string `json:"quotes,omitempty"`
+	SpecialChars  string `json:"special_chars,omitempty"`
+	UnicodeEscape string `json:"unicode_escape,omitempty"`
+	Whitespace    string `json:"whitespace,omitempty"`
+}
+-- boolean_variations.go --
+package test_package
+
+type boolean_variations struct {
+	FalseVal    bool    `json:"false_val,omitempty"`
+	NumberOne   float64 `json:"number_one,omitempty"`
+	NumberZero  float64 `json:"number_zero,omitempty"`
+	StringFalse string  `json:"string_false,omitempty"`
+	StringTrue  string  `json:"string_true,omitempty"`
+	TrueVal     bool    `json:"true_val,omitempty"`
+}
+-- numeric_strings.go --
+package test_package
+
+type numeric_strings struct {
+	LeadingZero    string `json:"leading_zero,omitempty"`
+	LooksLikeFloat string `json:"looks_like_float,omitempty"`
+	LooksLikeInt   string `json:"looks_like_int,omitempty"`
+	PhoneNumber    string `json:"phone_number,omitempty"`
+	Version        string `json:"version,omitempty"`
+	ZipCode        string `json:"zip_code,omitempty"`
+}
+-- recursive_structure.go --
+package test_package
+
+type recursive_structure struct {
+	Children []struct {
+		Children []struct {
+			Children []any  `json:"children,omitempty"`
+			Name     string `json:"name,omitempty"`
+		} `json:"children,omitempty"`
+		Name string `json:"name,omitempty"`
+	} `json:"children,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+-- mixed_array_types.go --
+package test_package
+
+type mixed_array_types struct {
+	Mixed []string `json:"mixed,omitempty"`
+}
+-- null_variations.err --
+error formatting generated code: 5:24: expected '{', found `json:"empty_object,omitempty"` (and 2 more errors)
+-- null_only.err --
+unsupported JSON structure: <nil>
+-- empty_array_only.err --
+no valid JSON objects found
+-- boolean_only.err --
+unsupported JSON structure: bool
+-- single_value_types.err --
+unsupported JSON structure: string
+-- number_only.err --
+unsupported JSON structure: float64
+-- array_of_primitives.err --
+no valid JSON objects found

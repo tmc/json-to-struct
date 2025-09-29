@@ -1,0 +1,62 @@
+ndjson test cases - runs in non-legacy mode only
+NDJSON (Newline Delimited JSON) test cases for line-by-line JSON processing.
+
+-- user_events.ndjson --
+{"user": "alice", "event": "login", "timestamp": "2024-01-01T10:00:00Z"}
+{"user": "bob", "event": "logout", "timestamp": "2024-01-01T10:05:00Z", "session_duration": 3600}
+{"user": "alice", "event": "purchase", "timestamp": "2024-01-01T10:10:00Z", "amount": 29.99, "product": "book"}
+{"user": "charlie", "event": "login", "timestamp": "2024-01-01T10:15:00Z", "ip_address": "192.168.1.100"}
+
+-- mixed_schemas.ndjson --
+{"name": "Product A", "price": 19.99, "category": "electronics"}
+{"name": "Product B", "price": 39.99, "category": "electronics", "discount": true}
+{"name": "Product C", "price": 9.99, "category": "books", "isbn": "978-1234567890", "pages": 300}
+{"name": "Product D", "price": null, "category": "clothing", "sizes": ["S", "M", "L"]}
+
+-- sensor_data.ndjson --
+{"sensor_id": "temp_01", "value": 23.5, "unit": "celsius", "location": {"room": "living_room", "floor": 1}}
+{"sensor_id": "humid_01", "value": 45.2, "unit": "percent", "location": {"room": "living_room", "floor": 1}, "battery": 87}
+{"sensor_id": "temp_02", "value": 19.8, "unit": "celsius", "location": {"room": "bedroom", "floor": 2}}
+{"sensor_id": "motion_01", "triggered": true, "location": {"room": "entrance", "floor": 1}, "sensitivity": "high"}
+
+-- user_events_expected.go --
+package main
+
+type user_events struct {
+	User            string   `json:"user,omitempty"`
+	Event           string   `json:"event,omitempty"`
+	Timestamp       string   `json:"timestamp,omitempty"`
+	SessionDuration *float64 `json:"session_duration,omitempty"`
+	Amount          *float64 `json:"amount,omitempty"`
+	Product         *string  `json:"product,omitempty"`
+	IPAddress       *string  `json:"ip_address,omitempty"`
+}
+
+-- mixed_schemas_expected.go --
+package main
+
+type mixed_schemas struct {
+	Name     string    `json:"name,omitempty"`
+	Price    *float64  `json:"price,omitempty"`
+	Category string    `json:"category,omitempty"`
+	Discount *bool     `json:"discount,omitempty"`
+	ISBN     *string   `json:"isbn,omitempty"`
+	Pages    *float64  `json:"pages,omitempty"`
+	Sizes    *[]string `json:"sizes,omitempty"`
+}
+
+-- sensor_data_expected.go --
+package main
+
+type sensor_data struct {
+	SensorID  string `json:"sensor_id,omitempty"`
+	Value     *float64 `json:"value,omitempty"`
+	Unit      *string  `json:"unit,omitempty"`
+	Location  struct {
+		Room  string  `json:"room,omitempty"`
+		Floor float64 `json:"floor,omitempty"`
+	} `json:"location,omitempty"`
+	Battery   *float64 `json:"battery,omitempty"`
+	Triggered *bool    `json:"triggered,omitempty"`
+	Sensitivity *string `json:"sensitivity,omitempty"`
+}
