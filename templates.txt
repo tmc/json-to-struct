@@ -1,0 +1,14 @@
+-- file.tmpl --
+package {{.Package}}
+{{if .Imports}}
+import (
+{{range .Imports}}	"{{.}}"
+{{end}})
+{{end}}
+{{.Content}}
+-- type.tmpl --
+{{if eq .Type "struct"}}type {{.Name}} {{.GetType}} {
+{{range .Children}}	{{.Name}} {{if eq .Type "struct"}}{{if .Repeated}}[]{{end}}struct {
+{{range .Children}}		{{.Name}} {{.GetType}} {{.GetTags}}
+{{end}}	}{{else}}{{.GetType}}{{end}} {{.GetTags}}
+{{end}}} {{.GetTags}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}

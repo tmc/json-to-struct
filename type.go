@@ -22,11 +22,11 @@ type Type struct {
 	Type     string
 	Tags     map[string]string
 	Children Fields
-	Config   *Config
+	Config   *generator
 }
 
 func (t *Type) GetType() string {
-	if t.Type == "nil"{
+	if t.Type == "nil" {
 		t.Type = "interface{}"
 	}
 	if t.Repeated {
@@ -57,16 +57,19 @@ func (t *Type) GetTags() string {
 }
 
 func (t *Type) String() string {
-	return t.templateString()
+	if t.Config != nil && t.Config.typeTemplate != nil {
+		return t.Config.renderTypeWithTemplate(t)
+	}
+	return t.Config.renderType(t)
 }
 
 func (t *Type) Merge(t2 *Type) error {
-	if strings.Trim(t.Type,"*") != strings.Trim(t2.Type,"*") {
+	if strings.Trim(t.Type, "*") != strings.Trim(t2.Type, "*") {
 		if t.Type == "nil" {
-			t.Type = fmt.Sprintf("*%s", strings.Trim(t2.Type,"*"))
+			t.Type = fmt.Sprintf("*%s", strings.Trim(t2.Type, "*"))
 			return nil
 		} else if t2.Type == "nil" {
-			t.Type = fmt.Sprintf("*%s", strings.Trim(t.Type,"*"))
+			t.Type = fmt.Sprintf("*%s", strings.Trim(t.Type, "*"))
 			return nil
 		} else {
 			t.Type = "interface{}"
@@ -90,4 +93,32 @@ func (t *Type) Merge(t2 *Type) error {
 	}
 
 	return nil
+}
+
+// renderType renders the type as a Go struct definition.
+func (g *generator) renderType(t *Type) string {
+	return g.renderTypeWithKeyword(t, true)
+}
+
+// renderTypeWithKeyword renders the type, optionally including the 'type' keyword
+func (g *generator) renderTypeWithKeyword(t *Type, includeTypeKeyword bool) string {
+	if len(t.Children) == 0 {
+		if includeTypeKeyword {
+			return fmt.Sprintf("type %s %s %s", t.Name, t.GetType(), t.GetTags())
+		}
+		return fmt.Sprintf("%s %s %s", t.Name, t.GetType(), t.GetTags())
+	}
+
+	result := []string{}
+	if includeTypeKeyword {
+		result = append(result, fmt.Sprintf("type %s %s {", t.Name, t.GetType()))
+	} else {
+		result = append(result, fmt.Sprintf("%s %s {", t.Name, t.GetType()))
+	}
+
+	for _, child := range t.Children {
+		result = append(result, fmt.Sprintf("    %s", g.renderTypeWithKeyword(child, false)))
+	}
+	result = append(result, fmt.Sprintf("}%s", t.GetTags()))
+	return strings.Join(result, "\n")
 }

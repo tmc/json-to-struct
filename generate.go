@@ -1,193 +1,372 @@
-// json-to-struct generates go struct defintions from JSON documents
-//
-// Reads from stdin and prints to stdout
-//
-// Example:
-// 	curl -s https://api.github.com/users/tmc | json-to-struct -name=User
-//
-// Output:
-//  package main
-//
-//  type GithubUser struct {
-//  	AvatarURL         string      `json:"avatar_url,omitempty"`
-//  	Bio               string      `json:"bio,omitempty"`
-//  	Blog              string      `json:"blog,omitempty"`
-//  	Company           string      `json:"company,omitempty"`
-//  	CreatedAt         string      `json:"created_at,omitempty"`
-//  	Email             interface{} `json:"email,omitempty"`
-//  	EventsURL         string      `json:"events_url,omitempty"`
-//  	Followers         float64     `json:"followers,omitempty"`
-//  	FollowersURL      string      `json:"followers_url,omitempty"`
-//  	Following         float64     `json:"following,omitempty"`
-//  	FollowingURL      string      `json:"following_url,omitempty"`
-//  	GistsURL          string      `json:"gists_url,omitempty"`
-//  	GravatarID        string      `json:"gravatar_id,omitempty"`
-//  	Hireable          bool        `json:"hireable,omitempty"`
-//  	HtmlURL           string      `json:"html_url,omitempty"`
-//  	ID                float64     `json:"id,omitempty"`
-//  	Location          string      `json:"location,omitempty"`
-//  	Login             string      `json:"login,omitempty"`
-//  	Name              string      `json:"name,omitempty"`
-//  	NodeID            string      `json:"node_id,omitempty"`
-//  	OrganizationsURL  string      `json:"organizations_url,omitempty"`
-//  	PublicGists       float64     `json:"public_gists,omitempty"`
-//  	PublicRepos       float64     `json:"public_repos,omitempty"`
-//  	ReceivedEventsURL string      `json:"received_events_url,omitempty"`
-//  	ReposURL          string      `json:"repos_url,omitempty"`
-//  	SiteAdmin         bool        `json:"site_admin,omitempty"`
-//  	StarredURL        string      `json:"starred_url,omitempty"`
-//  	SubscriptionsURL  string      `json:"subscriptions_url,omitempty"`
-//  	Type              string      `json:"type,omitempty"`
-//  	UpdatedAt         string      `json:"updated_at,omitempty"`
-//  	URL               string      `json:"url,omitempty"`
-//  }
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"go/format"
 	"io"
-	"reflect"
+	"os"
 	"sort"
 	"strings"
+	"text/template"
 	"unicode"
+
+	"golang.org/x/tools/txtar"
 )
 
-type Config struct {
-	// If True, emit "omitempty" tags on output fields.
-	OmitEmpty bool
+//go:embed templates.txt
+var defaultTemplates string
+
+// legacyGenerateFunc can be set by build tags to use legacy implementation
+var legacyGenerateFunc func(input io.Reader, structName, pkgName string, cfg *generator) ([]byte, error)
+
+type generator struct {
+	PackageName string // package name to use in generated code
+	TypeName    string // struct name to use in generated code
+
+	OmitEmpty bool // use omitempty in json tags
+
+	Template string // custom template to use instead of default
+
+	fileTemplate *template.Template
+	typeTemplate *template.Template
 }
 
-var DefaultConfig = Config{
-	OmitEmpty: true,
+// FieldStat tracks statistics about a field across multiple JSON objects
+type FieldStat struct {
+	Name       string
+	Types      map[string]int  // type name -> count
+	TotalCount int             // how many times this field appeared
+	IsArray    map[string]bool // type -> whether it was seen as array
+	JsonName   string          // original JSON field name
+	NestedObjs []interface{}   // store nested objects for proper struct generation
 }
 
-// Given a JSON string representation of an object and a name structName,
-// attemp to generate a struct definition
-func generate(input io.Reader, structName, pkgName string, cfg *Config) ([]byte, error) {
-	var iresult interface{}
-	if cfg == nil {
-		cfg = &DefaultConfig
-	}
-	if err := json.NewDecoder(input).Decode(&iresult); err != nil {
-		return nil, err
-	}
-
-	var typ *Type
-	switch iresult := iresult.(type) {
-	case map[string]interface{}:
-		typ = generateType(structName, iresult, cfg)
-	case []map[string]interface{}:
-		if len(iresult) == 0 {
-			return nil, fmt.Errorf("empty array")
-		}
-		typ = generateType(structName, iresult[0], cfg)
-		for _, r := range iresult[0:] {
-			t2 := generateType(structName, r, cfg)
-			if err := typ.Merge(t2); err != nil {
-				return nil, fmt.Errorf("issue merging: %w", err)
-			}
-		}
-	case []interface{}:
-		// TODO: reduce repetition
-		if len(iresult) == 0 {
-			return nil, fmt.Errorf("empty array")
-		}
-		typ = generateType(structName, iresult[0], cfg)
-		for _, r := range iresult[0:] {
-			t2 := generateType(structName, r, cfg)
-			if err := typ.Merge(t2); err != nil {
-				return nil, fmt.Errorf("issue merging: %w", err)
-			}
-		}
-	default:
-		return nil, fmt.Errorf("unexpected type: %T", iresult)
-	}
-
-	src := fmt.Sprintf("package %s\n%s",
-		pkgName,
-		typ.String())
-	formatted, err := format.Source([]byte(src))
-	if err != nil {
-		err = fmt.Errorf("error formatting: %s, was formatting\n%s", err, src)
-	}
-	return formatted, err
+// StructStats tracks field statistics for building consolidated struct
+type StructStats struct {
+	Fields     map[string]*FieldStat
+	TotalLines int
+	FieldOrder []string // Track order of first field encounter
 }
 
-func generateType(name string, value interface{}, cfg *Config) *Type {
-	result := &Type{Name: name, Config: cfg}
+func (g *generator) loadTemplates() error {
+	var templateData string
+
+	// Try to load from specified template file first
+	if g.Template != "" {
+		if data, err := os.ReadFile(g.Template); err == nil {
+			templateData = string(data)
+		}
+	}
+
+	// Fallback to embedded templates if external file not found or not specified
+	if templateData == "" {
+		templateData = defaultTemplates
+	}
+
+	// Parse the template data (either external or embedded)
+	archive := txtar.Parse([]byte(templateData))
+	templates := make(map[string]string)
+	for _, file := range archive.Files {
+		templates[file.Name] = string(file.Data)
+	}
+
+	if fileTmpl, ok := templates["file.tmpl"]; ok {
+		g.fileTemplate = template.Must(template.New("file").Parse(fileTmpl))
+	}
+	if typeTmpl, ok := templates["type.tmpl"]; ok {
+		g.typeTemplate = template.Must(template.New("type").Parse(typeTmpl))
+	}
+
+	return nil
+}
+
+// NewStructStats creates a new StructStats instance
+func NewStructStats() *StructStats {
+	return &StructStats{
+		Fields:     make(map[string]*FieldStat),
+		FieldOrder: make([]string, 0),
+	}
+}
+
+// ProcessValue processes a single value and updates field statistics
+func (s *StructStats) ProcessValue(key string, value interface{}, g *generator) {
+	fieldName := g.fmtFieldName(key)
+
+	if s.Fields[fieldName] == nil {
+		s.Fields[fieldName] = &FieldStat{
+			Name:       fieldName,
+			JsonName:   key,
+			Types:      make(map[string]int),
+			IsArray:    make(map[string]bool),
+			NestedObjs: make([]interface{}, 0),
+		}
+		// Track the order of first encounter
+		s.FieldOrder = append(s.FieldOrder, fieldName)
+	}
+
+	field := s.Fields[fieldName]
+	field.TotalCount++
+
 	switch v := value.(type) {
 	case []interface{}:
-		types := make(map[reflect.Type]bool, 0)
-		for _, o := range v {
-			types[reflect.TypeOf(o)] = true
-		}
-		result.Repeated = true
-		if len(types) == 1 {
-			t := generateType("", v[0], cfg)
-			result.Type = t.Type
-			result.Children = t.Children
+		if len(v) > 0 {
+			elementType := g.getGoType(v[0])
+			field.Types[elementType]++
+			field.IsArray[elementType] = true
+			// Store nested objects from arrays
+			if elementType == "struct" {
+				field.NestedObjs = append(field.NestedObjs, v[0])
+			}
 		} else {
-			result.Type = "interface{}"
+			field.Types["interface{}"]++
+			field.IsArray["interface{}"] = true
 		}
 	case map[string]interface{}:
-		result.Type = "struct"
-		result.Children = generateFieldTypes(v, cfg)
+		field.Types["struct"]++
+		// Store the nested object for proper struct generation
+		field.NestedObjs = append(field.NestedObjs, v)
 	default:
-		if reflect.TypeOf(value) == nil {
-			result.Type = "nil"
-		} else {
-			result.Type = reflect.TypeOf(value).Name()
+		goType := g.getGoType(value)
+		field.Types[goType]++
+	}
+}
+
+// ProcessJSON processes a single JSON object
+func (s *StructStats) ProcessJSON(data map[string]interface{}, g *generator) {
+	s.TotalLines++
+	for key, value := range data {
+		s.ProcessValue(key, value, g)
+	}
+}
+
+// getGoType returns the Go type name for a JSON value
+func (g *generator) getGoType(value interface{}) string {
+	if value == nil {
+		return "nil"
+	}
+
+	switch value.(type) {
+	case bool:
+		return "bool"
+	case float64:
+		return "float64"
+	case string:
+		return "string"
+	case map[string]interface{}:
+		return "struct"
+	case []interface{}:
+		return "[]interface{}" // This will be refined by the caller
+	default:
+		return "interface{}"
+	}
+}
+
+// GetMostCommonType returns the most frequently seen type for a field
+func (f *FieldStat) GetMostCommonType() string {
+	var maxType string
+	maxCount := 0
+	hasNil := false
+
+	for typeName, count := range f.Types {
+		if typeName == "nil" {
+			hasNil = true
+		} else if count > maxCount {
+			maxCount = count
+			maxType = typeName
 		}
 	}
+
+	// If we have both nil and non-nil values, make it a pointer type
+	if hasNil && maxType != "" {
+		return "*" + maxType
+	}
+
+	if maxType == "" {
+		maxType = "interface{}"
+	}
+
+	return maxType
+}
+
+func (g *generator) generate(output io.Writer, input io.Reader) error {
+	// Check if legacy implementation is available and use it
+	if legacyGenerateFunc != nil {
+		b, err := legacyGenerateFunc(input, g.TypeName, g.PackageName, g)
+		if err != nil {
+			return err
+		}
+		_, err = output.Write(b)
+		return err
+	}
+
+	// New multi-line implementation
+	stats := NewStructStats()
+
+	// Read all input
+	inputBytes, err := io.ReadAll(input)
+	if err != nil {
+		return fmt.Errorf("error reading input: %w", err)
+	}
+
+	inputStr := strings.TrimSpace(string(inputBytes))
+	if inputStr == "" {
+		return fmt.Errorf("no input provided")
+	}
+
+	// Try to parse as different JSON structures
+	var iresult interface{}
+	if err := json.Unmarshal(inputBytes, &iresult); err != nil {
+		return fmt.Errorf("error parsing JSON: %w", err)
+	}
+
+	switch result := iresult.(type) {
+	case map[string]interface{}:
+		// Single JSON object
+		stats.ProcessJSON(result, g)
+	case []interface{}:
+		// Array of objects - process each one
+		for _, item := range result {
+			if obj, ok := item.(map[string]interface{}); ok {
+				stats.ProcessJSON(obj, g)
+			}
+		}
+	case []map[string]interface{}:
+		// Array of maps - process each one
+		for _, obj := range result {
+			stats.ProcessJSON(obj, g)
+		}
+	default:
+		return fmt.Errorf("unsupported JSON structure: %T", iresult)
+	}
+
+	if stats.TotalLines == 0 {
+		return fmt.Errorf("no valid JSON objects found")
+	}
+
+	// Generate the struct definition
+	typ := g.buildTypeFromStats(stats)
+	src := g.renderFile(typ.String())
+
+	formatted, err := format.Source([]byte(src))
+	if err != nil {
+		return fmt.Errorf("error formatting generated code: %w", err)
+	}
+
+	_, err = output.Write(formatted)
+	return err
+}
+
+// buildTypeFromStats creates a Type from accumulated statistics
+func (g *generator) buildTypeFromStats(stats *StructStats) *Type {
+	result := &Type{
+		Name:   g.TypeName,
+		Type:   "struct",
+		Config: g,
+	}
+
+	// Convert field stats to Type children
+	var children []*Type
+
+	// Use different ordering strategies based on whether this is a single object or merged objects
+	var fieldNames []string
+	if stats.TotalLines == 1 {
+		// Single object: use alphabetical order by JSON key (like legacy generateFieldTypes)
+		jsonKeys := make([]string, 0, len(stats.Fields))
+		for _, stat := range stats.Fields {
+			jsonKeys = append(jsonKeys, stat.JsonName)
+		}
+		sort.Strings(jsonKeys)
+
+		// Convert back to field names
+		for _, jsonKey := range jsonKeys {
+			fieldName := g.fmtFieldName(jsonKey)
+			fieldNames = append(fieldNames, fieldName)
+		}
+	} else {
+		// Multiple objects: use encounter order (like legacy Type.Merge)
+		fieldNames = stats.FieldOrder
+	}
+
+	for _, fieldName := range fieldNames {
+		stat := stats.Fields[fieldName]
+		child := &Type{
+			Name:   stat.Name,
+			Config: g,
+		}
+
+		// Determine the most common type
+		mostCommonType := stat.GetMostCommonType()
+
+		// Check if it's an array type
+		isArray := false
+		for typeName, isArr := range stat.IsArray {
+			if stat.Types[typeName] > 0 && isArr {
+				isArray = true
+				child.Type = typeName
+				break
+			}
+		}
+
+		if !isArray {
+			child.Type = mostCommonType
+		}
+
+		child.Repeated = isArray
+
+		// For struct types, create proper nested structures by merging all nested objects
+		if child.Type == "struct" && len(stat.NestedObjs) > 0 {
+			child.Type = "struct"
+			// Merge all nested objects like the legacy implementation does
+			child.Children = g.mergeNestedObjects(stat.NestedObjs, child.Name)
+		}
+
+		// Set JSON tags if field name differs from JSON name
+		if stat.Name != stat.JsonName {
+			child.Tags = map[string]string{"json": stat.JsonName}
+		}
+
+		// Legacy implementation doesn't use pointer types for optional fields
+		// It just relies on json:",omitempty" tags
+
+		children = append(children, child)
+	}
+
+	result.Children = children
 	return result
 }
 
-func generateFieldTypes(obj map[string]interface{}, cfg *Config) []*Type {
-	result := []*Type{}
-
-	keys := make([]string, 0, len(obj))
-	for key := range obj {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		var typ *Type
-		switch v := obj[key].(type) {
-		case map[string]interface{}:
-			typ = generateType(key, v, cfg)
-		default:
-			typ = generateType(key, obj[key], cfg)
+// renderFile renders the complete Go file with package and type definition
+func (g *generator) renderFile(content string) string {
+	if g.fileTemplate != nil {
+		data := struct {
+			Package string
+			Imports []string
+			Content string
+		}{
+			Package: g.PackageName,
+			Imports: nil, // No imports needed for basic struct types
+			Content: content,
 		}
-		typ.Name = fmtFieldName(key)
-		// if we need to rewrite the field name we need to record the json field in a tag.
-		if typ.Name != key {
-			typ.Tags = map[string]string{"json": key}
+
+		var buf bytes.Buffer
+		if err := g.fileTemplate.Execute(&buf, data); err != nil {
+			// Fallback to simple format
+			return fmt.Sprintf("package %s\n\n%s", g.PackageName, content)
 		}
-		result = append(result, typ)
+		return buf.String()
 	}
-	return result
-}
 
-func renderTypes(types []Type, depth int, cfg *Config) string {
-	result := "struct {"
-
-	for _, typ := range types {
-		result += fmt.Sprintf("%v %v %v\n", typ.Name, typ.GetType(), typ.GetTags())
-	}
-	return result
+	// Default format
+	return fmt.Sprintf("package %s\n\n%s", g.PackageName, content)
 }
 
 var uppercaseFixups = map[string]bool{"id": true, "url": true}
 
-// fmtFieldName formats a string as a struct key
-//
-// Example:
-// 	fmtFieldName("foo_id")
-// Output: FooID
-func fmtFieldName(s string) string {
+// fmtFieldName formats a JSON field name as a Go struct field name
+func (g *generator) fmtFieldName(s string) string {
 	parts := strings.Split(s, "_")
 	for i := range parts {
 		parts[i] = strings.Title(parts[i])
@@ -210,4 +389,90 @@ func fmtFieldName(s string) string {
 		}
 	}
 	return string(runes)
+}
+
+// generateFieldTypesFromMap creates Type structures from a map, similar to legacy generateFieldTypes
+func (g *generator) generateFieldTypesFromMap(obj map[string]interface{}) []*Type {
+	result := []*Type{}
+
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		typ := g.generateTypeFromValue(key, obj[key])
+		typ.Name = g.fmtFieldName(key)
+		// if we need to rewrite the field name we need to record the json field in a tag.
+		if typ.Name != key {
+			typ.Tags = map[string]string{"json": key}
+		}
+		result = append(result, typ)
+	}
+	return result
+}
+
+// generateTypeFromValue creates a Type from a value, similar to legacy generateType
+func (g *generator) generateTypeFromValue(name string, value interface{}) *Type {
+	result := &Type{Name: name, Config: g}
+	switch v := value.(type) {
+	case []interface{}:
+		result.Repeated = true
+		if len(v) > 0 {
+			// For now, handle arrays of basic types
+			t := g.generateTypeFromValue("", v[0])
+			result.Type = t.Type
+			result.Children = t.Children
+		} else {
+			result.Type = "interface{}"
+		}
+	case map[string]interface{}:
+		result.Type = "struct"
+		result.Children = g.generateFieldTypesFromMap(v)
+	default:
+		if value == nil {
+			result.Type = "nil"
+		} else {
+			result.Type = g.getGoType(value)
+		}
+	}
+	return result
+}
+
+// mergeNestedObjects merges multiple nested objects into a single Type structure
+func (g *generator) mergeNestedObjects(nestedObjs []interface{}, name string) []*Type {
+	if len(nestedObjs) == 0 {
+		return nil
+	}
+
+	// Create a type from the first object
+	var baseType *Type
+	if firstMap, ok := nestedObjs[0].(map[string]interface{}); ok {
+		baseType = g.generateTypeFromValue(name, firstMap)
+	} else {
+		return nil
+	}
+
+	// Merge with remaining objects
+	for i := 1; i < len(nestedObjs); i++ {
+		if objMap, ok := nestedObjs[i].(map[string]interface{}); ok {
+			nextType := g.generateTypeFromValue(name, objMap)
+			if err := baseType.Merge(nextType); err != nil {
+				// If merge fails, continue with what we have
+				continue
+			}
+		}
+	}
+
+	return baseType.Children
+}
+
+// renderTypeWithTemplate renders the type using the configured template
+func (g *generator) renderTypeWithTemplate(t *Type) string {
+	var buf bytes.Buffer
+	if err := g.typeTemplate.Execute(&buf, t); err != nil {
+		panic(err)
+	}
+	return buf.String()
 }

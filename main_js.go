@@ -9,7 +9,7 @@ import (
 
 func jsonToStructFunction(this js.Value, p []js.Value) interface{} {
 	in := strings.NewReader(p[0].String())
-	if output, err := generate(in, "Type", "main", &DefaultConfig); err != nil {
+	if output, err := generate(in, "Type", "main", &generator{}); err != nil {
 		return js.ValueOf(err.Error())
 	} else {
 		return js.ValueOf(string(output))
