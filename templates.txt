@@ -12,3 +12,9 @@ import (
 {{range .Children}}		{{.Name}} {{.GetType}} {{.GetTags}}
 {{end}}	}{{else}}{{.GetType}}{{end}} {{.GetTags}}
 {{end}}} {{.GetTags}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}
+-- type-with-stats.tmpl --
+{{if eq .Type "struct"}}type {{.Name}} {{.GetType}} {
+{{range .Children}}	{{.Name}} {{if eq .Type "struct"}}{{if .Repeated}}[]{{end}}struct {
+{{range .Children}}		{{.Name}} {{.GetType}} {{.GetTags}}{{.GetStatComment}}
+{{end}}	}{{else}}{{.GetType}}{{end}} {{.GetTags}}{{.GetStatComment}}
+{{end}}} {{.GetTags}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}

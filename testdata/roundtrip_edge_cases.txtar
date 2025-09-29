@@ -1,0 +1,22 @@
+# Edge cases for roundtrip validation
+# Tests complex JSON structures and field variations
+
+-- nested.json --
+{"user":{"name":"John","age":30},"tags":["admin","user"],"metadata":{"created":"2024-01-01","updated":null}}
+
+-- nested.go --
+package test_package
+
+type nested struct {
+	Metadata struct {
+		Created string `json:"created,omitempty"`
+		Updated any    `json:"updated,omitempty"`
+	} `json:"metadata,omitempty"`
+	Tags []string `json:"tags,omitempty"`
+	User struct {
+		Age  float64 `json:"age,omitempty"`
+		Name string  `json:"name,omitempty"`
+	} `json:"user,omitempty"`
+}
+-- nested.roundtrip --
+✓ Round-trip: 1/1 records validated successfully

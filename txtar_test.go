@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -88,6 +90,7 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 		json        []byte
 		golden      []byte
 		expectedErr []byte
+		roundtrip   []byte
 		name        string
 	})
 
@@ -109,6 +112,12 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 			testName := strings.TrimSuffix(name, ".err")
 			tc := testCases[testName]
 			tc.expectedErr = file.Data
+			tc.name = testName
+			testCases[testName] = tc
+		} else if strings.HasSuffix(name, ".roundtrip") {
+			testName := strings.TrimSuffix(name, ".roundtrip")
+			tc := testCases[testName]
+			tc.roundtrip = file.Data
 			tc.name = testName
 			testCases[testName] = tc
 		}
@@ -233,6 +242,81 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 
 			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("generate() mismatch for %s (-want +got):\n%s", testName, diff)
+			}
+
+			// Run roundtrip test if .roundtrip file exists
+			if len(tc.roundtrip) > 0 {
+				t.Run("roundtrip", func(t *testing.T) {
+					// Run roundtrip validation with stderr capture
+					var stderrBuf bytes.Buffer
+
+					// Temporarily redirect stderr
+					origStderr := os.Stderr
+					r, w, _ := os.Pipe()
+					os.Stderr = w
+
+					// Run test in goroutine to avoid deadlock
+					var wg sync.WaitGroup
+					wg.Add(1)
+					var testErr error
+					go func() {
+						defer wg.Done()
+						testErr = runRoundtripTestWithData(g, tc.json)
+						w.Close()
+					}()
+
+					// Read from pipe
+					io.Copy(&stderrBuf, r)
+					wg.Wait()
+
+					// Restore stderr
+					os.Stderr = origStderr
+
+					if testErr != nil {
+						t.Errorf("roundtrip test failed: %v", testErr)
+						return
+					}
+
+					gotRoundtrip := strings.TrimSpace(stderrBuf.String())
+					wantRoundtrip := strings.TrimSpace(string(tc.roundtrip))
+
+					if *writeTxtarGolden {
+						// Update roundtrip golden file
+						if modifiedArchive == nil {
+							modifiedArchive = &txtar.Archive{
+								Comment: archive.Comment,
+								Files:   make([]txtar.File, len(archive.Files)),
+							}
+							copy(modifiedArchive.Files, archive.Files)
+						}
+
+						roundtripFileName := testName + ".roundtrip"
+						found := false
+						for i, file := range modifiedArchive.Files {
+							if file.Name == roundtripFileName {
+								modifiedArchive.Files[i].Data = []byte(gotRoundtrip)
+								found = true
+								needsUpdate = true
+								break
+							}
+						}
+
+						if !found {
+							modifiedArchive.Files = append(modifiedArchive.Files, txtar.File{
+								Name: roundtripFileName,
+								Data: []byte(gotRoundtrip),
+							})
+							needsUpdate = true
+						}
+
+						t.Logf("updated roundtrip golden for %s", testName)
+						return
+					}
+
+					if diff := cmp.Diff(wantRoundtrip, gotRoundtrip); diff != "" {
+						t.Errorf("roundtrip output mismatch (-want +got):\n%s", diff)
+					}
+				})
 			}
 		})
 	}

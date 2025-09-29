@@ -1,0 +1,240 @@
+-- file.tmpl --
+package {{.Package}}
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"reflect"
+	"strings"
+)
+
+{{.Content}}
+
+type ValidationStats struct {
+	TotalRecords    int            `json:"total_records"`
+	SuccessfulParse int            `json:"successful_parse"`
+	ParseErrors     int            `json:"parse_errors"`
+	FieldStats      map[string]FieldValidation `json:"field_stats"`
+	TypeMismatches  []TypeMismatch `json:"type_mismatches,omitempty"`
+}
+
+type FieldValidation struct {
+	ExpectedCount int      `json:"expected_count"`
+	ActualCount   int      `json:"actual_count"`
+	NilCount      int      `json:"nil_count"`
+	TypeErrors    []string `json:"type_errors,omitempty"`
+}
+
+type TypeMismatch struct {
+	Record      int    `json:"record"`
+	Field       string `json:"field"`
+	Expected    string `json:"expected"`
+	Actual      string `json:"actual"`
+	OriginalVal any    `json:"original_value"`
+}
+
+func main() {
+	stats := &ValidationStats{
+		FieldStats: make(map[string]FieldValidation),
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	recordNum := 0
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		recordNum++
+		stats.TotalRecords++
+
+		// Parse as raw JSON first to get original structure
+		var rawData map[string]any
+		if err := json.Unmarshal([]byte(line), &rawData); err != nil {
+			// Try as array
+			var rawArray []map[string]any
+			if err := json.Unmarshal([]byte(line), &rawArray); err != nil {
+				log.Printf("Record %d: Failed to parse as JSON: %v", recordNum, err)
+				stats.ParseErrors++
+				continue
+			}
+			// Process each object in array
+			for i, obj := range rawArray {
+				validateRecord(obj, recordNum*1000+i, stats)
+			}
+			continue
+		}
+
+		validateRecord(rawData, recordNum, stats)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading input: %v", err)
+	}
+
+	// Output validation statistics
+	output, err := json.MarshalIndent(stats, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshaling stats: %v", err)
+	}
+
+	fmt.Printf("=== ROUND-TRIP VALIDATION RESULTS ===\n")
+	fmt.Printf("%s\n", output)
+
+	// Summary
+	fmt.Printf("\n=== SUMMARY ===\n")
+	fmt.Printf("Total Records: %d\n", stats.TotalRecords)
+	fmt.Printf("Successful Parse: %d (%.1f%%)\n",
+		stats.SuccessfulParse,
+		float64(stats.SuccessfulParse)/float64(stats.TotalRecords)*100)
+	fmt.Printf("Parse Errors: %d\n", stats.ParseErrors)
+	fmt.Printf("Type Mismatches: %d\n", len(stats.TypeMismatches))
+
+	if len(stats.TypeMismatches) > 0 {
+		fmt.Printf("\n=== TYPE MISMATCHES ===\n")
+		for _, mismatch := range stats.TypeMismatches {
+			fmt.Printf("Record %d, Field '%s': Expected %s, got %s (value: %v)\n",
+				mismatch.Record, mismatch.Field, mismatch.Expected, mismatch.Actual, mismatch.OriginalVal)
+		}
+	}
+
+	// Field coverage analysis
+	fmt.Printf("\n=== FIELD COVERAGE ===\n")
+	for fieldName, validation := range stats.FieldStats {
+		coverage := float64(validation.ActualCount) / float64(stats.SuccessfulParse) * 100
+		fmt.Printf("%s: %d/%d records (%.1f%%), %d nil values\n",
+			fieldName, validation.ActualCount, stats.SuccessfulParse, coverage, validation.NilCount)
+
+		if len(validation.TypeErrors) > 0 {
+			fmt.Printf("  Type errors: %v\n", validation.TypeErrors)
+		}
+	}
+}
+
+func validateRecord(rawData map[string]any, recordNum int, stats *ValidationStats) {
+	// Parse into generated struct
+	var generated {{.TypeName}}
+	rawBytes, _ := json.Marshal(rawData)
+
+	if err := json.Unmarshal(rawBytes, &generated); err != nil {
+		log.Printf("Record %d: Failed to unmarshal into generated struct: %v", recordNum, err)
+		stats.ParseErrors++
+		return
+	}
+
+	stats.SuccessfulParse++
+
+	// Analyze each field
+	generatedValue := reflect.ValueOf(generated)
+	generatedType := reflect.TypeOf(generated)
+
+	for i := 0; i < generatedValue.NumField(); i++ {
+		field := generatedType.Field(i)
+		fieldValue := generatedValue.Field(i)
+
+		// Get JSON tag name
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "" {
+			jsonTag = field.Name
+		}
+		// Remove ,omitempty suffix
+		if comma := strings.Index(jsonTag, ","); comma != -1 {
+			jsonTag = jsonTag[:comma]
+		}
+
+		// Initialize field stats if not exists
+		if _, exists := stats.FieldStats[field.Name]; !exists {
+			stats.FieldStats[field.Name] = FieldValidation{}
+		}
+		fieldStat := stats.FieldStats[field.Name]
+
+		// Check if field exists in original data
+		originalValue, exists := rawData[jsonTag]
+		if exists {
+			fieldStat.ActualCount++
+
+			// Check for type compatibility
+			if err := validateFieldType(field.Name, fieldValue, originalValue, recordNum, stats); err != nil {
+				fieldStat.TypeErrors = append(fieldStat.TypeErrors, err.Error())
+			}
+		}
+
+		// Check for nil values in pointer fields
+		if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
+			fieldStat.NilCount++
+		}
+
+		stats.FieldStats[field.Name] = fieldStat
+	}
+}
+
+func validateFieldType(fieldName string, structField reflect.Value, originalValue any, recordNum int, stats *ValidationStats) error {
+	if originalValue == nil {
+		// Nil values should work with pointer types
+		if structField.Kind() != reflect.Ptr {
+			mismatch := TypeMismatch{
+				Record:      recordNum,
+				Field:       fieldName,
+				Expected:    "pointer type (for nil)",
+				Actual:      structField.Type().String(),
+				OriginalVal: originalValue,
+			}
+			stats.TypeMismatches = append(stats.TypeMismatches, mismatch)
+			return fmt.Errorf("nil value but field is not pointer")
+		}
+		return nil
+	}
+
+	// Check type compatibility
+	originalType := reflect.TypeOf(originalValue)
+	expectedType := structField.Type()
+
+	// Handle pointer types
+	if expectedType.Kind() == reflect.Ptr {
+		expectedType = expectedType.Elem()
+	}
+
+	compatible := false
+	switch {
+	case originalType == expectedType:
+		compatible = true
+	case originalType.Kind() == reflect.Float64 && expectedType.Kind() == reflect.Float64:
+		compatible = true
+	case originalType.Kind() == reflect.String && expectedType.Kind() == reflect.String:
+		compatible = true
+	case originalType.Kind() == reflect.Bool && expectedType.Kind() == reflect.Bool:
+		compatible = true
+	case expectedType == reflect.TypeOf((*any)(nil)).Elem(): // interface{}
+		compatible = true
+	case expectedType.Kind() == reflect.Slice || expectedType.Kind() == reflect.Array:
+		// Arrays/slices need more complex validation
+		compatible = true // Simplified for now
+	case expectedType.Kind() == reflect.Struct:
+		// Nested structs need recursive validation
+		compatible = true // Simplified for now
+	}
+
+	if !compatible {
+		mismatch := TypeMismatch{
+			Record:      recordNum,
+			Field:       fieldName,
+			Expected:    expectedType.String(),
+			Actual:      originalType.String(),
+			OriginalVal: originalValue,
+		}
+		stats.TypeMismatches = append(stats.TypeMismatches, mismatch)
+		return fmt.Errorf("type mismatch: expected %s, got %s", expectedType, originalType)
+	}
+
+	return nil
+}
+
+-- type.tmpl --
+{{.Name}} {{.GetType}}{{if .Children}} {
+{{range .Children}}    {{.}}
+{{end}}}{{end}}{{.GetTags}}

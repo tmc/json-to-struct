@@ -23,6 +23,7 @@ type Type struct {
 	Tags     map[string]string
 	Children Fields
 	Config   *generator
+	Stat     *FieldStat // Optional field statistics for comments
 }
 
 func (t *Type) GetType() string {
@@ -54,6 +55,37 @@ func (t *Type) GetTags() string {
 		parts = append(parts, fmt.Sprintf(`%v:"%v"`, k, v))
 	}
 	return fmt.Sprintf("`%v`", strings.Join(parts, ","))
+}
+
+func (t *Type) GetStatComment() string {
+	if t.Stat == nil || t.Config == nil || !t.Config.StatComments {
+		return ""
+	}
+
+	// Build comment with field statistics
+	comments := []string{}
+
+	// Add occurrence count
+	if t.Config.stats != nil && t.Config.stats.TotalLines > 0 {
+		percentage := float64(t.Stat.TotalCount) * 100.0 / float64(t.Config.stats.TotalLines)
+		comments = append(comments, fmt.Sprintf("seen in %.1f%% (%d/%d)",
+			percentage, t.Stat.TotalCount, t.Config.stats.TotalLines))
+	}
+
+	// Add type distribution if multiple types seen
+	if len(t.Stat.Types) > 1 {
+		typeInfo := []string{}
+		for typeName, count := range t.Stat.Types {
+			typeInfo = append(typeInfo, fmt.Sprintf("%s:%d", typeName, count))
+		}
+		sort.Strings(typeInfo)
+		comments = append(comments, "types: "+strings.Join(typeInfo, ", "))
+	}
+
+	if len(comments) > 0 {
+		return " // " + strings.Join(comments, ", ")
+	}
+	return ""
 }
 
 func (t *Type) String() string {

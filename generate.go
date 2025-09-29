@@ -26,12 +26,16 @@ type generator struct {
 	PackageName string // package name to use in generated code
 	TypeName    string // struct name to use in generated code
 
-	OmitEmpty bool // use omitempty in json tags
+	OmitEmpty    bool // use omitempty in json tags
+	StatComments bool // add field statistics as comments
 
 	Template string // custom template to use instead of default
 
 	fileTemplate *template.Template
 	typeTemplate *template.Template
+
+	// Statistics gathered during parsing
+	stats *StructStats
 }
 
 // FieldStat tracks statistics about a field across multiple JSON objects
@@ -73,11 +77,28 @@ func (g *generator) loadTemplates() error {
 		templates[file.Name] = string(file.Data)
 	}
 
+	// Choose template based on stat-comments flag
+	var typeTemplateKey string
+	if g.StatComments {
+		// Try to use stat-comments version first
+		if _, ok := templates["type-with-stats.tmpl"]; ok {
+			typeTemplateKey = "type-with-stats.tmpl"
+		} else {
+			typeTemplateKey = "type.tmpl"
+		}
+	} else {
+		typeTemplateKey = "type.tmpl"
+	}
+
 	if fileTmpl, ok := templates["file.tmpl"]; ok {
 		g.fileTemplate = template.Must(template.New("file").Parse(fileTmpl))
 	}
-	if typeTmpl, ok := templates["type.tmpl"]; ok {
-		g.typeTemplate = template.Must(template.New("type").Parse(typeTmpl))
+	if typeTmpl, ok := templates[typeTemplateKey]; ok {
+		g.typeTemplate = template.Must(template.New("type").Funcs(template.FuncMap{
+			"GetStatComment": func(t *Type) string {
+				return t.GetStatComment()
+			},
+		}).Parse(typeTmpl))
 	}
 
 	return nil
@@ -211,6 +232,7 @@ func (g *generator) generate(output io.Writer, input io.Reader) error {
 
 	// New multi-line implementation
 	stats := NewStructStats()
+	g.stats = stats
 
 	// Read all input
 	inputBytes, err := io.ReadAll(input)
@@ -309,6 +331,7 @@ func (g *generator) buildTypeFromStats(stats *StructStats) *Type {
 		child := &Type{
 			Name:   stat.Name,
 			Config: g,
+			Stat:   stat, // Add statistics for comment generation
 		}
 
 		// Determine the most common type

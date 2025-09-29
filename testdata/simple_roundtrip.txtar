@@ -1,0 +1,31 @@
+# Test for roundtrip validation
+# This test ensures that the generated struct can properly round-trip the input JSON
+
+-- simple.json --
+{"name":"John","age":30,"active":true}
+
+-- simple.go --
+package test_package
+
+type simple struct {
+	Active bool    `json:"active,omitempty"`
+	Age    float64 `json:"age,omitempty"`
+	Name   string  `json:"name,omitempty"`
+}
+-- simple.roundtrip --
+✓ Round-trip: 1/1 records validated successfully
+  Successfully round-tripped 1/1 single objects
+
+-- array.json --
+[{"name":"John","age":30},{"name":"Jane","age":null,"active":false}]
+
+-- array.go --
+package test_package
+
+type array struct {
+	Age    *float64 `json:"age,omitempty"`
+	Name   string   `json:"name,omitempty"`
+	Active bool     `json:"active,omitempty"`
+}
+-- array.roundtrip --
+✓ Round-trip: 2/1 records validated successfully
