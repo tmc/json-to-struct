@@ -137,8 +137,15 @@ func (s *StructStats) ProcessValue(key string, value any, g *generator) {
 // ProcessJSON processes a single JSON object
 func (s *StructStats) ProcessJSON(data map[string]any, g *generator) {
 	s.TotalLines++
-	for key, value := range data {
-		s.ProcessValue(key, value, g)
+	// Process keys in sorted order to ensure deterministic field ordering
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		s.ProcessValue(key, data[key], g)
 	}
 }
 
@@ -274,13 +281,20 @@ func (g *generator) buildTypeFromStats(stats *StructStats) *Type {
 	var fieldNames []string
 	if stats.TotalLines == 1 {
 		// Single object: use alphabetical order by JSON key (like legacy generateFieldTypes)
+		// Collect all JSON keys deterministically by iterating over sorted field names
+		fieldKeys := make([]string, 0, len(stats.Fields))
+		for fieldName := range stats.Fields {
+			fieldKeys = append(fieldKeys, fieldName)
+		}
+		sort.Strings(fieldKeys)
+
 		jsonKeys := make([]string, 0, len(stats.Fields))
-		for _, stat := range stats.Fields {
-			jsonKeys = append(jsonKeys, stat.JsonName)
+		for _, fieldName := range fieldKeys {
+			jsonKeys = append(jsonKeys, stats.Fields[fieldName].JsonName)
 		}
 		sort.Strings(jsonKeys)
 
-		// Convert back to field names
+		// Convert JSON keys to field names in sorted order
 		for _, jsonKey := range jsonKeys {
 			fieldName := g.fmtFieldName(jsonKey)
 			fieldNames = append(fieldNames, fieldName)

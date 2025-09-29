@@ -1,5 +1,3 @@
-//go:build txtartests
-
 package main
 
 import (
@@ -37,8 +35,9 @@ func shouldRunTxtarFile(comment string, filename string) bool {
 		// In legacy mode, only run files with legacy-compat
 		return hasLegacyCompat
 	}
-	// In non-legacy mode, only run files WITHOUT legacy-compat
-	return !hasLegacyCompat
+
+	// Default mode: run all files (both legacy-compat and non-legacy-compat)
+	return true
 }
 
 func TestTxtarGenerate(t *testing.T) {

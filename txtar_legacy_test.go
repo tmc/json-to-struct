@@ -1,4 +1,4 @@
-//go:build txtartests && legacy
+//go:build legacy
 
 package main
 
