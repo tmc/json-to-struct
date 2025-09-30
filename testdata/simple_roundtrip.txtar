@@ -23,9 +23,9 @@ type simple struct {
 package test_package
 
 type array struct {
+	Active bool     `json:"active,omitempty"`
 	Age    *float64 `json:"age,omitempty"`
 	Name   string   `json:"name,omitempty"`
-	Active bool     `json:"active,omitempty"`
 }
 -- array.roundtrip --
 ✓ Round-trip: 2/1 records validated successfully

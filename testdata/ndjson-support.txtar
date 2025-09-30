@@ -1,0 +1,47 @@
+# Test NDJSON (newline-delimited JSON) support
+# NDJSON is common in log files and streaming data
+
+-- simple_ndjson.json --
+{"name": "Alice", "age": 30, "city": "New York"}
+{"name": "Bob", "age": 25, "city": "San Francisco"}
+{"name": "Charlie", "age": 35, "city": "Chicago"}
+
+-- simple_ndjson.go --
+package test_package
+
+type simple_ndjson struct {
+	Age  float64 `json:"age,omitempty"`
+	City string  `json:"city,omitempty"`
+	Name string  `json:"name,omitempty"`
+}
+-- mixed_types_ndjson.json --
+{"id": 1, "type": "user", "data": {"username": "alice", "email": "alice@example.com"}}
+{"id": 2, "type": "product", "data": {"name": "Widget", "price": 19.99}}
+{"id": 3, "type": "user", "data": {"username": "bob", "verified": true}}
+
+-- mixed_types_ndjson.go --
+package test_package
+
+type mixed_types_ndjson struct {
+	Data struct {
+		Email    string  `json:"email,omitempty"`
+		Name     string  `json:"name,omitempty"`
+		Price    float64 `json:"price,omitempty"`
+		Username string  `json:"username,omitempty"`
+		Verified bool    `json:"verified,omitempty"`
+	} `json:"data,omitempty"`
+	ID   float64 `json:"id,omitempty"`
+	Type string  `json:"type,omitempty"`
+}
+-- empty_lines_ndjson.json --
+{"value": 1}
+
+{"value": 2}
+
+{"value": 3}
+-- empty_lines_ndjson.go --
+package test_package
+
+type empty_lines_ndjson struct {
+	Value float64 `json:"value,omitempty"`
+}

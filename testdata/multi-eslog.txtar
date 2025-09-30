@@ -1,0 +1,150 @@
+# Multiple ES log lines test case
+# Tests handling of multiple JSON lines from real-world data as an array
+
+-- eslog2.json --
+[
+{"process":{"executable":{"path":"\/Users\/tmc\/.local\/homebrew\/Cellar\/node\/24.4.1\/bin\/node","stat":{"st_flags":0,"st_dev":16777239,"st_atimespec":"2025-09-29T08:17:05.863502863Z","st_ino":65930357,"st_blksize":4096,"st_uid":501,"st_nlink":1,"st_birthtimespec":"2025-07-19T15:52:48.169930626Z","st_mtimespec":"2025-07-19T15:52:48.169930626Z","st_gid":20,"st_blocks":173912,"st_ctimespec":"2025-07-19T15:52:57.775450573Z","st_mode":33133,"st_gen":0,"st_size":89042552,"st_rdev":0},"path_truncated":false},"parent_audit_token":{"egid":20,"pid":29351,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":19845966},"ppid":29351,"start_time":"2025-09-28T02:05:45.339970Z","audit_token":{"egid":20,"pid":42221,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":19867158},"cs_validation_category":10,"codesigning_flags":570556963,"signing_id":"node","original_ppid":29351,"session_id":29342,"team_id":null,"responsible_audit_token":{"egid":20,"pid":20792,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":12130782},"group_id":42221,"tty":{"path":"\/dev\/ttys027","stat":{"st_flags":0,"st_dev":1552022631,"st_atimespec":"2025-09-29T03:55:25.904783000Z","st_ino":1969,"st_blksize":65536,"st_uid":501,"st_nlink":1,"st_birthtimespec":"1970-01-01T00:00:00.000000000Z","st_mtimespec":"2025-09-29T08:17:17.877803000Z","st_gid":4,"st_blocks":0,"st_ctimespec":"2025-09-29T08:17:17.877803000Z","st_mode":8592,"st_gen":0,"st_size":0,"st_rdev":268435483},"path_truncated":false},"is_platform_binary":false,"cdhash":"3F85C87E5B5E72EAB33D2C7A1362BA86A34D0283","is_es_client":false},"global_seq_num":0,"time":"2025-09-29T08:17:17.924250682Z","thread":{"thread_id":21612566},"schema_version":1,"action":{"result":{"result":{"auth":0},"result_type":0}},"mach_time":4210846481572,"event_type":43,"action_type":1,"seq_num":0,"version":10,"event":{"lookup":{"source_dir":{"stat":{"st_dev":16777239,"st_atimespec":"2025-09-09T07:15:49.000000000Z","st_rdev":0,"st_blksize":4096,"st_size":704,"st_mtimespec":"2025-09-09T07:15:49.000000000Z","st_birthtimespec":"2025-09-09T07:15:49.000000000Z","st_blocks":0,"st_flags":1048576,"st_gen":0,"st_uid":0,"st_mode":16877,"st_gid":0,"st_ino":2,"st_nlink":22,"st_ctimespec":"2025-09-09T07:15:49.000000000Z"},"path_truncated":false,"path":"\/"},"relative_target":"Users\/tmc\/.claude\/.config.json"}}}
+,
+{"process":{"codesigning_flags":570556963,"tty":{"path":"\/dev\/ttys027","path_truncated":false,"stat":{"st_rdev":268435483,"st_birthtimespec":"1970-01-01T00:00:00.000000000Z","st_nlink":1,"st_ctimespec":"2025-09-29T08:17:17.877803000Z","st_ino":1969,"st_size":0,"st_gid":4,"st_blocks":0,"st_mtimespec":"2025-09-29T08:17:17.877803000Z","st_blksize":65536,"st_atimespec":"2025-09-29T03:55:25.904783000Z","st_mode":8592,"st_uid":501,"st_dev":1552022631,"st_flags":0,"st_gen":0}},"is_es_client":false,"cs_validation_category":10,"original_ppid":29351,"ppid":29351,"start_time":"2025-09-28T02:05:45.339970Z","team_id":null,"cdhash":"3F85C87E5B5E72EAB33D2C7A1362BA86A34D0283","signing_id":"node","is_platform_binary":false,"session_id":29342,"executable":{"path":"\/Users\/tmc\/.local\/homebrew\/Cellar\/node\/24.4.1\/bin\/node","path_truncated":false,"stat":{"st_blocks":173912,"st_atimespec":"2025-09-29T08:17:05.863502863Z","st_size":89042552,"st_rdev":0,"st_uid":501,"st_birthtimespec":"2025-07-19T15:52:48.169930626Z","st_blksize":4096,"st_nlink":1,"st_flags":0,"st_mode":33133,"st_ctimespec":"2025-07-19T15:52:57.775450573Z","st_gid":20,"st_dev":16777239,"st_ino":65930357,"st_mtimespec":"2025-07-19T15:52:48.169930626Z","st_gen":0}},"group_id":42221,"responsible_audit_token":{"egid":20,"pid":20792,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":12130782},"parent_audit_token":{"egid":20,"pid":29351,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":19845966},"audit_token":{"egid":20,"pid":42221,"asid":100024,"euid":501,"ruid":501,"auid":501,"rgid":20,"pidversion":19867158}},"global_seq_num":1,"time":"2025-09-29T08:17:17.924273515Z","thread":{"thread_id":21612566},"schema_version":1,"action":{"result":{"result":{"auth":0},"result_type":0}},"mach_time":4210846482120,"event_type":43,"action_type":1,"seq_num":1,"version":10,"event":{"lookup":{"source_dir":{"stat":{"st_rdev":0,"st_birthtimespec":"2025-09-09T07:15:49.000000000Z","st_nlink":22,"st_ctimespec":"2025-09-09T07:15:49.000000000Z","st_ino":2,"st_size":704,"st_gid":0,"st_blocks":0,"st_mtimespec":"2025-09-09T07:15:49.000000000Z","st_blksize":4096,"st_atimespec":"2025-09-09T07:15:49.000000000Z","st_mode":16877,"st_uid":0,"st_dev":16777239,"st_flags":1048576,"st_gen":0},"path_truncated":false,"path":"\/"},"relative_target":"Users\/tmc\/.claude.json"}}}
+
+]
+
+-- eslog2.go --
+package test_package
+
+type eslog2 struct {
+	Action struct {
+		Result struct {
+			Result struct {
+				Auth float64 `json:"auth,omitempty"`
+			} `json:"result,omitempty"`
+			ResultType float64 `json:"result_type,omitempty"`
+		} `json:"result,omitempty"`
+	} `json:"action,omitempty"`
+	ActionType float64 `json:"action_type,omitempty"`
+	Event      struct {
+		Lookup struct {
+			RelativeTarget string `json:"relative_target,omitempty"`
+			SourceDir      struct {
+				Path          string `json:"path,omitempty"`
+				PathTruncated bool   `json:"path_truncated,omitempty"`
+				Stat          struct {
+					StAtimespec     string  `json:"st_atimespec,omitempty"`
+					StBirthtimespec string  `json:"st_birthtimespec,omitempty"`
+					StBlksize       float64 `json:"st_blksize,omitempty"`
+					StBlocks        float64 `json:"st_blocks,omitempty"`
+					StCtimespec     string  `json:"st_ctimespec,omitempty"`
+					StDev           float64 `json:"st_dev,omitempty"`
+					StFlags         float64 `json:"st_flags,omitempty"`
+					StGen           float64 `json:"st_gen,omitempty"`
+					StGid           float64 `json:"st_gid,omitempty"`
+					StIno           float64 `json:"st_ino,omitempty"`
+					StMode          float64 `json:"st_mode,omitempty"`
+					StMtimespec     string  `json:"st_mtimespec,omitempty"`
+					StNlink         float64 `json:"st_nlink,omitempty"`
+					StRdev          float64 `json:"st_rdev,omitempty"`
+					StSize          float64 `json:"st_size,omitempty"`
+					StUid           float64 `json:"st_uid,omitempty"`
+				} `json:"stat,omitempty"`
+			} `json:"source_dir,omitempty"`
+		} `json:"lookup,omitempty"`
+	} `json:"event,omitempty"`
+	EventType    float64 `json:"event_type,omitempty"`
+	GlobalSeqNum float64 `json:"global_seq_num,omitempty"`
+	MachTime     float64 `json:"mach_time,omitempty"`
+	Process      struct {
+		AuditToken struct {
+			Asid       float64 `json:"asid,omitempty"`
+			Auid       float64 `json:"auid,omitempty"`
+			Egid       float64 `json:"egid,omitempty"`
+			Euid       float64 `json:"euid,omitempty"`
+			Pid        float64 `json:"pid,omitempty"`
+			Pidversion float64 `json:"pidversion,omitempty"`
+			Rgid       float64 `json:"rgid,omitempty"`
+			Ruid       float64 `json:"ruid,omitempty"`
+		} `json:"audit_token,omitempty"`
+		Cdhash               string  `json:"cdhash,omitempty"`
+		CodesigningFlags     float64 `json:"codesigning_flags,omitempty"`
+		CsValidationCategory float64 `json:"cs_validation_category,omitempty"`
+		Executable           struct {
+			Path          string `json:"path,omitempty"`
+			PathTruncated bool   `json:"path_truncated,omitempty"`
+			Stat          struct {
+				StAtimespec     string  `json:"st_atimespec,omitempty"`
+				StBirthtimespec string  `json:"st_birthtimespec,omitempty"`
+				StBlksize       float64 `json:"st_blksize,omitempty"`
+				StBlocks        float64 `json:"st_blocks,omitempty"`
+				StCtimespec     string  `json:"st_ctimespec,omitempty"`
+				StDev           float64 `json:"st_dev,omitempty"`
+				StFlags         float64 `json:"st_flags,omitempty"`
+				StGen           float64 `json:"st_gen,omitempty"`
+				StGid           float64 `json:"st_gid,omitempty"`
+				StIno           float64 `json:"st_ino,omitempty"`
+				StMode          float64 `json:"st_mode,omitempty"`
+				StMtimespec     string  `json:"st_mtimespec,omitempty"`
+				StNlink         float64 `json:"st_nlink,omitempty"`
+				StRdev          float64 `json:"st_rdev,omitempty"`
+				StSize          float64 `json:"st_size,omitempty"`
+				StUid           float64 `json:"st_uid,omitempty"`
+			} `json:"stat,omitempty"`
+		} `json:"executable,omitempty"`
+		GroupID          float64 `json:"group_id,omitempty"`
+		IsEsClient       bool    `json:"is_es_client,omitempty"`
+		IsPlatformBinary bool    `json:"is_platform_binary,omitempty"`
+		OriginalPpid     float64 `json:"original_ppid,omitempty"`
+		ParentAuditToken struct {
+			Asid       float64 `json:"asid,omitempty"`
+			Auid       float64 `json:"auid,omitempty"`
+			Egid       float64 `json:"egid,omitempty"`
+			Euid       float64 `json:"euid,omitempty"`
+			Pid        float64 `json:"pid,omitempty"`
+			Pidversion float64 `json:"pidversion,omitempty"`
+			Rgid       float64 `json:"rgid,omitempty"`
+			Ruid       float64 `json:"ruid,omitempty"`
+		} `json:"parent_audit_token,omitempty"`
+		Ppid                  float64 `json:"ppid,omitempty"`
+		ResponsibleAuditToken struct {
+			Asid       float64 `json:"asid,omitempty"`
+			Auid       float64 `json:"auid,omitempty"`
+			Egid       float64 `json:"egid,omitempty"`
+			Euid       float64 `json:"euid,omitempty"`
+			Pid        float64 `json:"pid,omitempty"`
+			Pidversion float64 `json:"pidversion,omitempty"`
+			Rgid       float64 `json:"rgid,omitempty"`
+			Ruid       float64 `json:"ruid,omitempty"`
+		} `json:"responsible_audit_token,omitempty"`
+		SessionID float64 `json:"session_id,omitempty"`
+		SigningID string  `json:"signing_id,omitempty"`
+		StartTime string  `json:"start_time,omitempty"`
+		TeamID    any     `json:"team_id,omitempty"`
+		Tty       struct {
+			Path          string `json:"path,omitempty"`
+			PathTruncated bool   `json:"path_truncated,omitempty"`
+			Stat          struct {
+				StAtimespec     string  `json:"st_atimespec,omitempty"`
+				StBirthtimespec string  `json:"st_birthtimespec,omitempty"`
+				StBlksize       float64 `json:"st_blksize,omitempty"`
+				StBlocks        float64 `json:"st_blocks,omitempty"`
+				StCtimespec     string  `json:"st_ctimespec,omitempty"`
+				StDev           float64 `json:"st_dev,omitempty"`
+				StFlags         float64 `json:"st_flags,omitempty"`
+				StGen           float64 `json:"st_gen,omitempty"`
+				StGid           float64 `json:"st_gid,omitempty"`
+				StIno           float64 `json:"st_ino,omitempty"`
+				StMode          float64 `json:"st_mode,omitempty"`
+				StMtimespec     string  `json:"st_mtimespec,omitempty"`
+				StNlink         float64 `json:"st_nlink,omitempty"`
+				StRdev          float64 `json:"st_rdev,omitempty"`
+				StSize          float64 `json:"st_size,omitempty"`
+				StUid           float64 `json:"st_uid,omitempty"`
+			} `json:"stat,omitempty"`
+		} `json:"tty,omitempty"`
+	} `json:"process,omitempty"`
+	SchemaVersion float64 `json:"schema_version,omitempty"`
+	SeqNum        float64 `json:"seq_num,omitempty"`
+	Thread        struct {
+		ThreadID float64 `json:"thread_id,omitempty"`
+	} `json:"thread,omitempty"`
+	Time    string  `json:"time,omitempty"`
+	Version float64 `json:"version,omitempty"`
+}

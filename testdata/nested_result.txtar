@@ -1,0 +1,108 @@
+# Test cases for nested structures with field named "result"
+# This tests a regression where templates incorrectly used {{.GetType}} for root struct
+
+-- simple_result.json --
+{"result": 123}
+
+-- simple_result.expected --
+package test_package
+
+type simple_result struct {
+	Result float64 `json:"result,omitempty"`
+}
+
+-- nested_result.json --
+{"result": {"value": 456}}
+
+-- nested_result.expected --
+package test_package
+
+type nested_result struct {
+	Result struct {
+		Value float64 `json:"value,omitempty"`
+	} `json:"result,omitempty"`
+}
+
+-- double_nested_result.json --
+{"action": {"result": {"result": {"auth": 0}, "result_type": 0}}}
+
+-- double_nested_result.expected --
+package test_package
+
+type double_nested_result struct {
+	Action struct {
+		Result struct {
+			Result struct {
+				Auth float64 `json:"auth,omitempty"`
+			} `json:"result,omitempty"`
+			ResultType float64 `json:"result_type,omitempty"`
+		} `json:"result,omitempty"`
+	} `json:"action,omitempty"`
+}
+
+-- empty_object.json --
+{"empty_object": {}}
+
+-- empty_object.expected --
+package test_package
+
+type empty_object struct {
+	EmptyObject struct {
+	} `json:"empty_object,omitempty"`
+}
+
+-- mixed_empty_and_result.json --
+{"data": {}, "result": {"status": "ok"}}
+
+-- mixed_empty_and_result.expected --
+package test_package
+
+type mixed_empty_and_result struct {
+	Data struct {
+	} `json:"data,omitempty"`
+	Result struct {
+		Status string `json:"status,omitempty"`
+	} `json:"result,omitempty"`
+}
+-- mixed_empty_and_result.go --
+package test_package
+
+type mixed_empty_and_result struct {
+	Data   struct{} `json:"data,omitempty"`
+	Result struct {
+		Status string `json:"status,omitempty"`
+	} `json:"result,omitempty"`
+}
+-- simple_result.go --
+package test_package
+
+type simple_result struct {
+	Result float64 `json:"result,omitempty"`
+}
+-- nested_result.go --
+package test_package
+
+type nested_result struct {
+	Result struct {
+		Value float64 `json:"value,omitempty"`
+	} `json:"result,omitempty"`
+}
+-- double_nested_result.go --
+package test_package
+
+type double_nested_result struct {
+	Action struct {
+		Result struct {
+			Result struct {
+				Auth float64 `json:"auth,omitempty"`
+			} `json:"result,omitempty"`
+			ResultType float64 `json:"result_type,omitempty"`
+		} `json:"result,omitempty"`
+	} `json:"action,omitempty"`
+}
+-- empty_object.go --
+package test_package
+
+type empty_object struct {
+	EmptyObject struct{} `json:"empty_object,omitempty"`
+}

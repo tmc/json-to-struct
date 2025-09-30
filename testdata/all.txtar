@@ -69,11 +69,11 @@ type test_nullable_json struct {
 package test_package
 
 type test_repeated_json struct {
-	Foo float64 `json:"foo,omitempty"`
 	Bar float64 `json:"bar,omitempty"`
 	Baz struct {
 		Zap bool `json:"zap,omitempty"`
 	} `json:"baz,omitempty"`
+	Foo float64 `json:"foo,omitempty"`
 }
 -- test_simple_array.go --
 package test_package
@@ -86,32 +86,32 @@ type test_simple_array struct {
 package test_package
 
 type test_simple_json struct {
-	F_O_O float64 `json:"f.o-o,omitempty"`
+	F_o_o float64 `json:"f.o-o,omitempty"`
 }
 -- empty.json --
 -- more_complex_example.json --
 {
-  "login": "tmc",
+  "login": "exampleuser",
   "id": 3977,
   "avatar_url": "https://1.gravatar.com/avatar/68f0049842700597b89972e1fbf6f542?d=https%3A%2F%2Fidenticons.github.com%2F7d571e5c15bad5ef8c4352ce7a1d9e78.png",
   "gravatar_id": "68f0049842700597b89972e1fbf6f542",
-  "url": "https://api.github.com/users/tmc",
-  "html_url": "https://github.com/tmc",
-  "followers_url": "https://api.github.com/users/tmc/followers",
-  "following_url": "https://api.github.com/users/tmc/following{/other_user}",
-  "gists_url": "https://api.github.com/users/tmc/gists{/gist_id}",
-  "starred_url": "https://api.github.com/users/tmc/starred{/owner}{/repo}",
-  "subscriptions_url": "https://api.github.com/users/tmc/subscriptions",
-  "organizations_url": "https://api.github.com/users/tmc/orgs",
-  "repos_url": "https://api.github.com/users/tmc/repos",
-  "events_url": "https://api.github.com/users/tmc/events{/privacy}",
-  "received_events_url": "https://api.github.com/users/tmc/received_events",
+  "url": "https://api.github.com/users/exampleuser",
+  "html_url": "https://github.com/exampleuser",
+  "followers_url": "https://api.github.com/users/exampleuser/followers",
+  "following_url": "https://api.github.com/users/exampleuser/following{/other_user}",
+  "gists_url": "https://api.github.com/users/exampleuser/gists{/gist_id}",
+  "starred_url": "https://api.github.com/users/exampleuser/starred{/owner}{/repo}",
+  "subscriptions_url": "https://api.github.com/users/exampleuser/subscriptions",
+  "organizations_url": "https://api.github.com/users/exampleuser/orgs",
+  "repos_url": "https://api.github.com/users/exampleuser/repos",
+  "events_url": "https://api.github.com/users/exampleuser/events{/privacy}",
+  "received_events_url": "https://api.github.com/users/exampleuser/received_events",
   "type": "User",
-  "name": "Travis Cline",
-  "company": "Facebook",
+  "name": "Example User",
+  "company": "Example Corp",
   "blog": "",
-  "location": "lawrence, ks",
-  "email": "travis.cline@gmail.com",
+  "location": "Example City, ST",
+  "email": "user@example.com",
   "hireable": true,
   "bio": null,
   "public_repos": 87,

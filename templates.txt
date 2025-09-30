@@ -7,14 +7,10 @@ import (
 {{end}}
 {{.Content}}
 -- type.tmpl --
-{{if eq .Type "struct"}}type {{.Name}} {{.GetType}} {
-{{range .Children}}	{{.Name}} {{if eq .Type "struct"}}{{if .Repeated}}[]{{end}}struct {
-{{range .Children}}		{{.Name}} {{.GetType}} {{.GetTags}}
-{{end}}	}{{else}}{{.GetType}}{{end}} {{.GetTags}}
-{{end}}} {{.GetTags}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}
+{{if eq .Type "struct"}}type {{.Name}} struct {
+{{range .Children}}	{{.Name}} {{if or (eq .Type "struct") (eq .Type "*struct")}}{{RenderInlineStruct . 1}}{{else}}{{.GetType}}{{end}} {{.GetTags}}
+{{end}}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}
 -- type-with-stats.tmpl --
-{{if eq .Type "struct"}}type {{.Name}} {{.GetType}} {
-{{range .Children}}	{{.Name}} {{if eq .Type "struct"}}{{if .Repeated}}[]{{end}}struct {
-{{range .Children}}		{{.Name}} {{.GetType}} {{.GetTags}}{{.GetStatComment}}
-{{end}}	}{{else}}{{.GetType}}{{end}} {{.GetTags}}{{.GetStatComment}}
-{{end}}} {{.GetTags}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}
+{{if eq .Type "struct"}}type {{.Name}} struct {
+{{range .Children}}	{{.Name}} {{if or (eq .Type "struct") (eq .Type "*struct")}}{{RenderInlineStruct . 1}}{{else}}{{.GetType}}{{end}} {{.GetTags}}{{.GetStatComment}}
+{{end}}}{{else}}type {{.Name}} {{.GetType}} {{.GetTags}}{{end}}

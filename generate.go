@@ -16,6 +16,22 @@ import (
 	"golang.org/x/tools/txtar"
 )
 
+// FormatError is returned when generated code fails to format
+type FormatError struct {
+	OriginalError error
+	Source        string // The unformatted source code
+	LineNum       int
+	Column        int
+}
+
+func (e *FormatError) Error() string {
+	return fmt.Sprintf("formatting error at line %d:%d: %v", e.LineNum, e.Column, e.OriginalError)
+}
+
+func (e *FormatError) Unwrap() error {
+	return e.OriginalError
+}
+
 //go:embed templates.txt
 var defaultTemplates string
 
@@ -26,8 +42,12 @@ type generator struct {
 	PackageName string // package name to use in generated code
 	TypeName    string // struct name to use in generated code
 
-	OmitEmpty    bool // use omitempty in json tags
-	StatComments bool // add field statistics as comments
+	OmitEmpty      bool   // use omitempty in json tags
+	StatComments   bool   // add field statistics as comments
+	Stream         bool   // show progressive output with terminal clearing
+	ExtractStructs bool   // extract repeated structs to reduce duplication
+	UpdateInterval int    // milliseconds between stream updates
+	FieldOrder     string // field ordering strategy: common-first, rare-first, alphabetical
 
 	Template string // custom template to use instead of default
 
@@ -36,16 +56,25 @@ type generator struct {
 
 	// Statistics gathered during parsing
 	stats *StructStats
+
+	// Extracted struct definitions
+	extractedTypes map[string]*Type
+
+	// Cache for fmtFieldName to avoid repeated expensive string operations
+	fieldNameCache map[string]string
 }
 
 // FieldStat tracks statistics about a field across multiple JSON objects
 type FieldStat struct {
-	Name       string
-	Types      map[string]int  // type name -> count
-	TotalCount int             // how many times this field appeared
-	IsArray    map[string]bool // type -> whether it was seen as array
-	JsonName   string          // original JSON field name
-	NestedObjs []any           // store nested objects for proper struct generation
+	Name        string
+	Types       map[string]int  // type name -> count
+	TotalCount  int             // how many times this field appeared
+	IsArray     map[string]bool // type -> whether it was seen as array
+	JsonName    string          // original JSON field name
+	NestedObjs  []any           // store nested objects for proper struct generation
+	Values      map[string]int  // for string/number fields, track unique values and their counts
+	NumericVals []float64       // for numeric fields, track all values for percentile calculation
+	ValueOrder  []string        // track order of first appearance for values
 }
 
 // StructStats tracks field statistics for building consolidated struct
@@ -98,6 +127,9 @@ func (g *generator) loadTemplates() error {
 			"GetStatComment": func(t *Type) string {
 				return t.GetStatComment()
 			},
+			"RenderInlineStruct": func(t *Type, depth int) string {
+				return g.renderInlineStruct(t, depth)
+			},
 		}).Parse(typeTmpl))
 	}
 
@@ -123,6 +155,7 @@ func (s *StructStats) ProcessValue(key string, value any, g *generator) {
 			Types:      make(map[string]int),
 			IsArray:    make(map[string]bool),
 			NestedObjs: make([]any, 0),
+			Values:     make(map[string]int),
 		}
 		// Track the order of first encounter
 		s.FieldOrder = append(s.FieldOrder, fieldName)
@@ -149,6 +182,40 @@ func (s *StructStats) ProcessValue(key string, value any, g *generator) {
 		field.Types["struct"]++
 		// Store the nested object for proper struct generation
 		field.NestedObjs = append(field.NestedObjs, v)
+	case string:
+		field.Types["string"]++
+		// Track string values for cardinality
+		if len(field.Values) < 100 { // Limit tracking to avoid memory issues
+			if _, exists := field.Values[v]; !exists {
+				field.ValueOrder = append(field.ValueOrder, v)
+			}
+			field.Values[v]++
+		}
+	case float64:
+		field.Types["float64"]++
+		// Track all numeric values for statistics
+		if field.NumericVals == nil {
+			field.NumericVals = make([]float64, 0)
+		}
+		field.NumericVals = append(field.NumericVals, v)
+
+		// Track numeric values if they look like enums (small integers)
+		if v == float64(int(v)) && v >= -100 && v <= 100 {
+			valStr := fmt.Sprintf("%d", int(v))
+			if _, exists := field.Values[valStr]; !exists {
+				field.ValueOrder = append(field.ValueOrder, valStr)
+			}
+			field.Values[valStr]++
+		}
+	case bool:
+		field.Types["bool"]++
+		valStr := fmt.Sprintf("%v", v)
+		if _, exists := field.Values[valStr]; !exists {
+			field.ValueOrder = append(field.ValueOrder, valStr)
+		}
+		field.Values[valStr]++
+	case nil:
+		field.Types["nil"]++
 	default:
 		goType := g.getGoType(value)
 		field.Types[goType]++
@@ -158,15 +225,9 @@ func (s *StructStats) ProcessValue(key string, value any, g *generator) {
 // ProcessJSON processes a single JSON object
 func (s *StructStats) ProcessJSON(data map[string]any, g *generator) {
 	s.TotalLines++
-	// Process keys in sorted order to ensure deterministic field ordering
-	keys := make([]string, 0, len(data))
-	for key := range data {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		s.ProcessValue(key, data[key], g)
+	// Process all fields - ordering will be handled when building the final type
+	for key, value := range data {
+		s.ProcessValue(key, value, g)
 	}
 }
 
@@ -230,6 +291,11 @@ func (g *generator) generate(output io.Writer, input io.Reader) error {
 		return err
 	}
 
+	// Use streaming mode if requested
+	if g.Stream {
+		return g.generateStream(output, input)
+	}
+
 	// New multi-line implementation
 	stats := NewStructStats()
 	g.stats = stats
@@ -248,27 +314,44 @@ func (g *generator) generate(output io.Writer, input io.Reader) error {
 	// Try to parse as different JSON structures
 	var iresult any
 	if err := json.Unmarshal(inputBytes, &iresult); err != nil {
-		return fmt.Errorf("error parsing JSON: %w", err)
-	}
-
-	switch result := iresult.(type) {
-	case map[string]any:
-		// Single JSON object
-		stats.ProcessJSON(result, g)
-	case []any:
-		// Array of objects - process each one
-		for _, item := range result {
-			if obj, ok := item.(map[string]any); ok {
+		// Not valid JSON, try NDJSON (newline-delimited JSON)
+		lines := strings.Split(inputStr, "\n")
+		hasValidJSON := false
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			var obj map[string]any
+			if err := json.Unmarshal([]byte(line), &obj); err == nil {
 				stats.ProcessJSON(obj, g)
+				hasValidJSON = true
 			}
 		}
-	case []map[string]any:
-		// Array of maps - process each one
-		for _, obj := range result {
-			stats.ProcessJSON(obj, g)
+		if !hasValidJSON {
+			return fmt.Errorf("error parsing JSON: %w", err)
 		}
-	default:
-		return fmt.Errorf("unsupported JSON structure: %T", iresult)
+	} else {
+		// Successfully parsed as regular JSON
+		switch result := iresult.(type) {
+		case map[string]any:
+			// Single JSON object
+			stats.ProcessJSON(result, g)
+		case []any:
+			// Array of objects - process each one
+			for _, item := range result {
+				if obj, ok := item.(map[string]any); ok {
+					stats.ProcessJSON(obj, g)
+				}
+			}
+		case []map[string]any:
+			// Array of maps - process each one
+			for _, obj := range result {
+				stats.ProcessJSON(obj, g)
+			}
+		default:
+			return fmt.Errorf("unsupported JSON structure: %T", iresult)
+		}
 	}
 
 	if stats.TotalLines == 0 {
@@ -277,11 +360,55 @@ func (g *generator) generate(output io.Writer, input io.Reader) error {
 
 	// Generate the struct definition
 	typ := g.buildTypeFromStats(stats)
-	src := g.renderFile(typ.String())
+
+	// Extract repeated structs if requested
+	if g.ExtractStructs {
+		g.extractRepeatedStructs(typ)
+	}
+
+	// Build the complete output with extracted types
+	var src string
+	if g.ExtractStructs && len(g.extractedTypes) > 0 {
+		// Render extracted types first, then main type
+		var parts []string
+
+		// Sort extracted type names for deterministic output
+		var names []string
+		for name := range g.extractedTypes {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		// Add extracted types
+		for _, name := range names {
+			parts = append(parts, g.extractedTypes[name].String())
+		}
+
+		// Add main type
+		parts = append(parts, typ.String())
+
+		src = g.renderFile(strings.Join(parts, "\n\n"))
+	} else {
+		src = g.renderFile(typ.String())
+	}
 
 	formatted, err := format.Source([]byte(src))
 	if err != nil {
-		return fmt.Errorf("error formatting generated code: %w", err)
+		// Write the unformatted source to output anyway so user can see what was generated
+		output.Write([]byte(src))
+
+		// Parse go/format error which is like "61:17: expected '{', found `json:"result,omitempty"`"
+		var lineNum, colNum int
+		fmt.Sscanf(err.Error(), "%d:%d:", &lineNum, &colNum)
+
+		// Return a FormatError with all the info
+		// The error will be printed to stderr but we still wrote the output
+		return &FormatError{
+			OriginalError: err,
+			Source:        src,
+			LineNum:       lineNum,
+			Column:        colNum,
+		}
 	}
 
 	_, err = output.Write(formatted)
@@ -299,31 +426,62 @@ func (g *generator) buildTypeFromStats(stats *StructStats) *Type {
 	// Convert field stats to Type children
 	var children []*Type
 
-	// Use different ordering strategies based on whether this is a single object or merged objects
-	var fieldNames []string
-	if stats.TotalLines == 1 {
-		// Single object: use alphabetical order by JSON key (like legacy generateFieldTypes)
-		// Collect all JSON keys deterministically by iterating over sorted field names
-		fieldKeys := make([]string, 0, len(stats.Fields))
-		for fieldName := range stats.Fields {
-			fieldKeys = append(fieldKeys, fieldName)
-		}
-		sort.Strings(fieldKeys)
+	// Sort fields by occurrence count (most common first), then alphabetically for determinism
+	type fieldInfo struct {
+		name     string
+		jsonName string
+		count    int
+		order    int // first encounter order
+	}
 
-		jsonKeys := make([]string, 0, len(stats.Fields))
-		for _, fieldName := range fieldKeys {
-			jsonKeys = append(jsonKeys, stats.Fields[fieldName].JsonName)
-		}
-		sort.Strings(jsonKeys)
+	fields := make([]fieldInfo, 0, len(stats.Fields))
+	orderMap := make(map[string]int)
+	for i, name := range stats.FieldOrder {
+		orderMap[name] = i
+	}
 
-		// Convert JSON keys to field names in sorted order
-		for _, jsonKey := range jsonKeys {
-			fieldName := g.fmtFieldName(jsonKey)
-			fieldNames = append(fieldNames, fieldName)
-		}
-	} else {
-		// Multiple objects: use encounter order (like legacy Type.Merge)
-		fieldNames = stats.FieldOrder
+	for fieldName, stat := range stats.Fields {
+		fields = append(fields, fieldInfo{
+			name:     fieldName,
+			jsonName: stat.JsonName,
+			count:    stat.TotalCount,
+			order:    orderMap[fieldName],
+		})
+	}
+
+	// Sort based on configured field ordering strategy
+	switch g.FieldOrder {
+	case "encounter":
+		// Use encounter order (no sorting by count)
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].order < fields[j].order
+		})
+	case "rare-first":
+		// Rare fields first (ascending count), then by encounter order
+		sort.Slice(fields, func(i, j int) bool {
+			if fields[i].count != fields[j].count {
+				return fields[i].count < fields[j].count // Lower count first
+			}
+			return fields[i].order < fields[j].order
+		})
+	case "common-first":
+		// Common fields first (descending count), then by encounter order
+		sort.Slice(fields, func(i, j int) bool {
+			if fields[i].count != fields[j].count {
+				return fields[i].count > fields[j].count // Higher count first
+			}
+			return fields[i].order < fields[j].order
+		})
+	default: // "alphabetical" or unspecified
+		// Alphabetical by JSON key name (legacy default)
+		sort.Slice(fields, func(i, j int) bool {
+			return strings.ToLower(fields[i].jsonName) < strings.ToLower(fields[j].jsonName)
+		})
+	}
+
+	fieldNames := make([]string, len(fields))
+	for i, f := range fields {
+		fieldNames[i] = f.name
 	}
 
 	for _, fieldName := range fieldNames {
@@ -404,13 +562,28 @@ var uppercaseFixups = map[string]bool{"id": true, "url": true}
 
 // fmtFieldName formats a JSON field name as a Go struct field name
 func (g *generator) fmtFieldName(s string) string {
+	// Initialize cache if needed
+	if g.fieldNameCache == nil {
+		g.fieldNameCache = make(map[string]string)
+	}
+
+	// Check cache first
+	if cached, ok := g.fieldNameCache[s]; ok {
+		return cached
+	}
+
+	// Compute the formatted name efficiently
 	parts := strings.Split(s, "_")
 	for i := range parts {
-		parts[i] = strings.Title(parts[i])
+		// Replace deprecated strings.Title with efficient implementation
+		if len(parts[i]) > 0 {
+			parts[i] = strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
+		}
 	}
 	if len(parts) > 0 {
 		last := parts[len(parts)-1]
-		if uppercaseFixups[strings.ToLower(last)] {
+		lastLower := strings.ToLower(last)
+		if uppercaseFixups[lastLower] {
 			parts[len(parts)-1] = strings.ToUpper(last)
 		}
 	}
@@ -425,7 +598,11 @@ func (g *generator) fmtFieldName(s string) string {
 			runes[i] = '_'
 		}
 	}
-	return string(runes)
+	result := string(runes)
+
+	// Cache the result
+	g.fieldNameCache[s] = result
+	return result
 }
 
 // generateFieldTypesFromMap creates Type structures from a map, similar to legacy generateFieldTypes
@@ -477,32 +654,25 @@ func (g *generator) generateTypeFromValue(name string, value any) *Type {
 	return result
 }
 
-// mergeNestedObjects merges multiple nested objects into a single Type structure
+// mergeNestedObjects merges multiple nested objects into a single Type structure with statistics
 func (g *generator) mergeNestedObjects(nestedObjs []any, name string) []*Type {
 	if len(nestedObjs) == 0 {
 		return nil
 	}
 
-	// Create a type from the first object
-	var baseType *Type
-	if firstMap, ok := nestedObjs[0].(map[string]any); ok {
-		baseType = g.generateTypeFromValue(name, firstMap)
-	} else {
-		return nil
-	}
+	// Create a nested stats collector
+	nestedStats := NewStructStats()
 
-	// Merge with remaining objects
-	for i := 1; i < len(nestedObjs); i++ {
-		if objMap, ok := nestedObjs[i].(map[string]any); ok {
-			nextType := g.generateTypeFromValue(name, objMap)
-			if err := baseType.Merge(nextType); err != nil {
-				// If merge fails, continue with what we have
-				continue
-			}
+	// Process all nested objects to gather statistics
+	for _, obj := range nestedObjs {
+		if objMap, ok := obj.(map[string]any); ok {
+			nestedStats.ProcessJSON(objMap, g)
 		}
 	}
 
-	return baseType.Children
+	// Build the type from the statistics (recursive)
+	nestedType := g.buildTypeFromStats(nestedStats)
+	return nestedType.Children
 }
 
 // renderTypeWithTemplate renders the type using the configured template

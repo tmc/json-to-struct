@@ -1,0 +1,101 @@
+# Test cases for struct extraction feature
+# Tests the -extract-structs flag to reduce duplication
+# flags: -extract-structs
+
+-- simple_duplicate.json --
+{
+  "user": {
+    "id": 1,
+    "name": "Alice",
+    "active": true
+  },
+  "admin": {
+    "id": 2,
+    "name": "Bob",
+    "active": false
+  }
+}
+
+-- simple_duplicate.go --
+package test_package
+
+type Person struct {
+	Active bool    `json:"active,omitempty"`
+	ID     float64 `json:"id,omitempty"`
+	Name   string  `json:"name,omitempty"`
+}
+
+type simple_duplicate struct {
+	Admin Person `json:"admin,omitempty"`
+	User  Person `json:"user,omitempty"`
+}
+-- repeated_nested.json --
+{
+  "source": {
+    "file": {
+      "path": "/src/main.go",
+      "size": 1024,
+      "mode": 644
+    }
+  },
+  "target": {
+    "file": {
+      "path": "/dst/main.go",
+      "size": 1024,
+      "mode": 644
+    }
+  },
+  "backup": {
+    "file": {
+      "path": "/bak/main.go",
+      "size": 1024,
+      "mode": 644
+    }
+  }
+}
+
+-- repeated_nested.go --
+package test_package
+
+type FileInfo struct {
+	Mode float64 `json:"mode,omitempty"`
+	Path string  `json:"path,omitempty"`
+	Size float64 `json:"size,omitempty"`
+}
+
+type repeated_nested struct {
+	Backup struct {
+		File FileInfo `json:"file,omitempty"`
+	} `json:"backup,omitempty"`
+	Source struct {
+		File FileInfo `json:"file,omitempty"`
+	} `json:"source,omitempty"`
+	Target struct {
+		File FileInfo `json:"file,omitempty"`
+	} `json:"target,omitempty"`
+}
+-- deeply_nested.json --
+{
+  "action": {
+    "result": {
+      "data": {
+        "auth": 1
+      },
+      "type": 0
+    }
+  }
+}
+
+-- deeply_nested.go --
+package test_package
+
+type deeply_nested struct {
+	Action struct {
+		Result struct {
+			Data struct {
+				Auth float64 `json:"auth,omitempty"`
+			} `json:"data,omitempty"`
+			Type float64 `json:"type,omitempty"`
+		} `json:"result,omitempty"`
+	} `json:"action,omitempty"`
+}

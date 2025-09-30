@@ -54,7 +54,6 @@ func runRoundtripTestWithData(g *generator, inputData []byte) error {
 		return fmt.Errorf("failed to write test program: %w", err)
 	}
 
-
 	// Run the program directly with go run and capture output
 	runCmd := exec.Command("go", "run", "main.go")
 	runCmd.Dir = tmpDir // Set working directory to the temp directory
@@ -134,25 +133,25 @@ import (
 %s
 
 type ValidationStats struct {
-	TotalRecords    int                        ` + "`json:\"total_records\"`" + `
-	SuccessfulParse int                        ` + "`json:\"successful_parse\"`" + `
-	ParseErrors     int                        ` + "`json:\"parse_errors\"`" + `
-	FieldStats      map[string]FieldValidation ` + "`json:\"field_stats\"`" + `
-	TypeMismatches  []TypeMismatch             ` + "`json:\"type_mismatches,omitempty\"`" + `
+	TotalRecords    int                        `+"`json:\"total_records\"`"+`
+	SuccessfulParse int                        `+"`json:\"successful_parse\"`"+`
+	ParseErrors     int                        `+"`json:\"parse_errors\"`"+`
+	FieldStats      map[string]FieldValidation `+"`json:\"field_stats\"`"+`
+	TypeMismatches  []TypeMismatch             `+"`json:\"type_mismatches,omitempty\"`"+`
 }
 
 type FieldValidation struct {
-	ActualCount   int      ` + "`json:\"actual_count\"`" + `
-	NilCount      int      ` + "`json:\"nil_count\"`" + `
-	TypeErrors    []string ` + "`json:\"type_errors,omitempty\"`" + `
+	ActualCount   int      `+"`json:\"actual_count\"`"+`
+	NilCount      int      `+"`json:\"nil_count\"`"+`
+	TypeErrors    []string `+"`json:\"type_errors,omitempty\"`"+`
 }
 
 type TypeMismatch struct {
-	Record      int    ` + "`json:\"record\"`" + `
-	Field       string ` + "`json:\"field\"`" + `
-	Expected    string ` + "`json:\"expected\"`" + `
-	Actual      string ` + "`json:\"actual\"`" + `
-	OriginalVal any    ` + "`json:\"original_value\"`" + `
+	Record      int    `+"`json:\"record\"`"+`
+	Field       string `+"`json:\"field\"`"+`
+	Expected    string `+"`json:\"expected\"`"+`
+	Actual      string `+"`json:\"actual\"`"+`
+	OriginalVal any    `+"`json:\"original_value\"`"+`
 }
 
 func main() {

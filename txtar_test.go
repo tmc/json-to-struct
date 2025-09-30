@@ -15,8 +15,19 @@ import (
 	"golang.org/x/tools/txtar"
 )
 
-var writeTxtarGolden = flag.Bool("write-txtar-golden", false, "If true, writes out golden files in txtar archives")
+var writeTxtarGolden = flag.String("write-txtar-golden", "", "If set, writes out golden files in txtar archives matching this regexp pattern (use '.' to match all)")
 var forceLegacyPattern = flag.String("force-legacy-pattern", "", "If set, forces legacy mode for txtar files matching this regexp pattern")
+
+// shouldWriteGolden determines if golden files should be written for a txtar file
+func shouldWriteGolden(filename string) bool {
+	if *writeTxtarGolden == "" {
+		// Not set, don't write golden files
+		return false
+	}
+	// Check regexp pattern
+	matched, err := regexp.MatchString(*writeTxtarGolden, filename)
+	return err == nil && matched
+}
 
 // shouldRunTxtarFile determines if a txtar file should run based on mode and comment
 func shouldRunTxtarFile(comment string, filename string) bool {
@@ -85,6 +96,23 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 		t.Fatalf("failed to parse txtar file %s: %v", txtarFile, err)
 	}
 
+	// Parse flags from comment header
+	// Example: # flags: -extract-structs -stat-comments
+	comment := string(archive.Comment)
+	var extractStructs bool
+	var statComments bool
+	for _, line := range strings.Split(comment, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "# flags:") {
+			flagLine := strings.TrimPrefix(strings.TrimSpace(line), "# flags:")
+			if strings.Contains(flagLine, "-extract-structs") {
+				extractStructs = true
+			}
+			if strings.Contains(flagLine, "-stat-comments") {
+				statComments = true
+			}
+		}
+	}
+
 	// Group files by test case (based on prefix before first dot)
 	testCases := make(map[string]struct {
 		json        []byte
@@ -134,9 +162,11 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 			}
 
 			g := &generator{
-				TypeName:    testName,
-				PackageName: "test_package",
-				OmitEmpty:   true,
+				TypeName:       testName,
+				PackageName:    "test_package",
+				OmitEmpty:      true,
+				ExtractStructs: extractStructs,
+				StatComments:   statComments,
 			}
 
 			var buf bytes.Buffer
@@ -158,7 +188,7 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 
 			// If no error expected, but we got one
 			if err != nil {
-				if *writeTxtarGolden {
+				if shouldWriteGolden(filepath.Base(txtarFile)) {
 					// Write error expectation file
 					if modifiedArchive == nil {
 						modifiedArchive = &txtar.Archive{
@@ -192,13 +222,20 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 					t.Logf("wrote error expectation for %s: %v", testName, err)
 					return
 				}
+				// Log the raw generated output if it's a FormatError
+				if formatErr, ok := err.(*FormatError); ok {
+					t.Logf("Error at line %d, column %d", formatErr.LineNum, formatErr.Column)
+				}
 				t.Errorf("generator.generate() error = %v", err)
 				return
 			}
 
 			got := buf.String()
 
-			if *writeTxtarGolden {
+			// Always log generated code for debugging
+			t.Logf("Generated code for %s:\n%s", testName, got)
+
+			if shouldWriteGolden(filepath.Base(txtarFile)) {
 				// Update the golden file in the archive
 				if modifiedArchive == nil {
 					modifiedArchive = &txtar.Archive{
@@ -280,7 +317,7 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 					gotRoundtrip := strings.TrimSpace(stderrBuf.String())
 					wantRoundtrip := strings.TrimSpace(string(tc.roundtrip))
 
-					if *writeTxtarGolden {
+					if shouldWriteGolden(filepath.Base(txtarFile)) {
 						// Update roundtrip golden file
 						if modifiedArchive == nil {
 							modifiedArchive = &txtar.Archive{
@@ -322,7 +359,7 @@ func runTxtarTest(t *testing.T, txtarFile string) {
 	}
 
 	// Write updated txtar file if golden files were updated
-	if *writeTxtarGolden && needsUpdate && modifiedArchive != nil {
+	if shouldWriteGolden(filepath.Base(txtarFile)) && needsUpdate && modifiedArchive != nil {
 		data := txtar.Format(modifiedArchive)
 		err := os.WriteFile(txtarFile, data, 0644)
 		if err != nil {

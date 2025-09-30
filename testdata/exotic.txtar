@@ -217,12 +217,12 @@ null
 package test_package
 
 type unicode_fields struct {
-	Café   string `json:"café,omitempty"`
-	Naïve  string `json:"naïve,omitempty"`
-	Ñoño   string `json:"ñoño,omitempty"`
-	Москва string
-	東京     string
-	_      string `json:"🚀,omitempty"`
+	Café    string `json:"café,omitempty"`
+	Naïve   string `json:"naïve,omitempty"`
+	__oño   string `json:"ñoño,omitempty"`
+	__осква string `json:"Москва,omitempty"`
+	___京    string `json:"東京,omitempty"`
+	____    string `json:"🚀,omitempty"`
 }
 -- large_object.go --
 package test_package
@@ -340,14 +340,14 @@ type reserved_keywords struct {
 package test_package
 
 type case_variations struct {
-	MixedCase_Types string `json:"Mixed_Case-Types,omitempty"`
-	PascalCase      string
-	SCREAMINGSNAKE  string `json:"SCREAMING_SNAKE,omitempty"`
-	CamelCase       string `json:"camelCase,omitempty"`
-	Dotted_Field    string `json:"dotted.field,omitempty"`
-	Kebab_Case      string `json:"kebab-case,omitempty"`
+	Camelcase       string `json:"camelCase,omitempty"`
+	Dotted_field    string `json:"dotted.field,omitempty"`
+	Kebab_case      string `json:"kebab-case,omitempty"`
+	MixedCase_types string `json:"Mixed_Case-Types,omitempty"`
+	Pascalcase      string `json:"PascalCase,omitempty"`
+	ScreamingSnake  string `json:"SCREAMING_SNAKE,omitempty"`
 	SnakeCase       string `json:"snake_case,omitempty"`
-	Spaced_Field    string `json:"spaced field,omitempty"`
+	Spaced_field    string `json:"spaced field,omitempty"`
 }
 -- special_strings.go --
 package test_package
@@ -403,8 +403,19 @@ package test_package
 type mixed_array_types struct {
 	Mixed []string `json:"mixed,omitempty"`
 }
--- null_variations.err --
-error formatting generated code: 5:24: expected '{', found `json:"empty_object,omitempty"` (and 2 more errors)
+-- null_variations.go --
+package test_package
+
+type null_variations struct {
+	EmptyArray   []any    `json:"empty_array,omitempty"`
+	EmptyObject  struct{} `json:"empty_object,omitempty"`
+	ExplicitNull any      `json:"explicit_null,omitempty"`
+	NestedNulls  struct {
+		ArrayWithNulls []any `json:"array_with_nulls,omitempty"`
+		Inner          any   `json:"inner,omitempty"`
+	} `json:"nested_nulls,omitempty"`
+	StringNull string `json:"string_null,omitempty"`
+}
 -- null_only.err --
 unsupported JSON structure: <nil>
 -- empty_array_only.err --
