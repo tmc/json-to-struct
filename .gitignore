@@ -6,3 +6,4 @@
 build/
 conf.go
 gojson
+json-to-struct

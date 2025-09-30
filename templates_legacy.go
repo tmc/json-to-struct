@@ -42,11 +42,23 @@ func loadTemplates(templatePath string) {
 		templates[file.Name] = string(file.Data)
 	}
 
+	// Template functions - note: these are stubs for legacy mode
+	// Full implementation would require generator context
+	funcMap := template.FuncMap{
+		"RenderInlineStruct": func(t *Type, depth int) string {
+			// Simple inline struct rendering for legacy compatibility
+			if t.Type == "struct" || t.Type == "*struct" {
+				return t.Type + " {...}"
+			}
+			return t.Type
+		},
+	}
+
 	if fileTmpl, ok := templates["file.tmpl"]; ok {
-		fileTemplate = template.Must(template.New("file").Parse(fileTmpl))
+		fileTemplate = template.Must(template.New("file").Funcs(funcMap).Parse(fileTmpl))
 	}
 	if typeTmpl, ok := templates["type.tmpl"]; ok {
-		typeTemplate = template.Must(template.New("type").Parse(typeTmpl))
+		typeTemplate = template.Must(template.New("type").Funcs(funcMap).Parse(typeTmpl))
 	}
 }
 
