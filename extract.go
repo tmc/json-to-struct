@@ -132,6 +132,12 @@ func (g *generator) createExtractedType(t *Type, signature string) *Type {
 
 // generateStructName generates a meaningful name for an extracted struct
 func (g *generator) generateStructName(t *Type, signature string) string {
+	// Start with the root type name as prefix
+	prefix := g.TypeName
+	if prefix == "" {
+		prefix = "Foo" // Default fallback
+	}
+
 	// Try to find a meaningful name from the fields
 	// Look for common patterns like "stat", "token", etc.
 
@@ -139,62 +145,14 @@ func (g *generator) generateStructName(t *Type, signature string) string {
 	if len(t.Children) > 0 {
 		// Look for fields like st_* which suggest "Stat"
 		if hasCommonPrefix(t.Children, "St") {
-			return "Stat"
+			return prefix + "Stat"
 		}
 
-		// Look for audit token patterns
-		hasID := false
-		hasName := false
-		hasActive := false
-		hasPath := false
-		hasSize := false
-		hasMode := false
-
-		for _, child := range t.Children {
-			lowerName := strings.ToLower(child.Name)
-			if lowerName == "id" {
-				hasID = true
-			}
-			if lowerName == "name" {
-				hasName = true
-			}
-			if lowerName == "active" {
-				hasActive = true
-			}
-			if lowerName == "path" {
-				hasPath = true
-			}
-			if lowerName == "size" {
-				hasSize = true
-			}
-			if lowerName == "mode" {
-				hasMode = true
-			}
-
-			if strings.Contains(lowerName, "pid") ||
-				strings.Contains(lowerName, "uid") ||
-				strings.Contains(lowerName, "gid") {
-				if strings.Contains(lowerName, "version") {
-					return "AuditToken"
-				}
-			}
-		}
-
-		// Common patterns
-		if hasID && hasName && hasActive {
-			return "Person"
-		}
-		if hasPath && hasSize && hasMode {
-			return "FileInfo"
-		}
-		if hasID && hasName {
-			return "Entity"
-		}
 	}
 
 	// Fallback: generate a name from a hash of the signature
 	hash := md5.Sum([]byte(signature))
-	return fmt.Sprintf("CommonStruct%X", hash[:4])
+	return fmt.Sprintf("%sStruct%X", prefix, hash[:4])
 }
 
 // hasCommonPrefix checks if all fields share a common prefix

@@ -19,15 +19,15 @@
 -- simple_duplicate.go --
 package test_package
 
-type Person struct {
+type simple_duplicateStructC801770D struct {
 	Active bool    `json:"active,omitempty"`
 	ID     float64 `json:"id,omitempty"`
 	Name   string  `json:"name,omitempty"`
 }
 
 type simple_duplicate struct {
-	Admin Person `json:"admin,omitempty"`
-	User  Person `json:"user,omitempty"`
+	Admin simple_duplicateStructC801770D `json:"admin,omitempty"`
+	User  simple_duplicateStructC801770D `json:"user,omitempty"`
 }
 -- repeated_nested.json --
 {
@@ -57,7 +57,7 @@ type simple_duplicate struct {
 -- repeated_nested.go --
 package test_package
 
-type FileInfo struct {
+type repeated_nestedStruct9A925295 struct {
 	Mode float64 `json:"mode,omitempty"`
 	Path string  `json:"path,omitempty"`
 	Size float64 `json:"size,omitempty"`
@@ -65,13 +65,13 @@ type FileInfo struct {
 
 type repeated_nested struct {
 	Backup struct {
-		File FileInfo `json:"file,omitempty"`
+		File repeated_nestedStruct9A925295 `json:"file,omitempty"`
 	} `json:"backup,omitempty"`
 	Source struct {
-		File FileInfo `json:"file,omitempty"`
+		File repeated_nestedStruct9A925295 `json:"file,omitempty"`
 	} `json:"source,omitempty"`
 	Target struct {
-		File FileInfo `json:"file,omitempty"`
+		File repeated_nestedStruct9A925295 `json:"file,omitempty"`
 	} `json:"target,omitempty"`
 }
 -- deeply_nested.json --
