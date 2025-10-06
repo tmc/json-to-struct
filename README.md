@@ -49,7 +49,41 @@ Installation
 ------------
 
 ```sh
-$ go get github.com/tmc/json-to-struct
+$ go install github.com/tmc/json-to-struct@latest
+```
+
+Features
+--------
+
+- **Struct Extraction**: Automatically extract repeated nested structures with `-extract-structs`
+- **Streaming Mode**: Progressive output for large datasets with `-stream`
+- **Roundtrip Validation**: Verify generated structs with `-roundtrip`
+- **Field Statistics**: Add occurrence metadata with `-stat-comments`
+- **Custom Field Ordering**: Control field order with `-field-order` (alphabetical, encounter, common-first, rare-first)
+- **Template Support**: Custom output formatting via `-template`
+- **NDJSON Support**: Process newline-delimited JSON
+
+Usage
+-----
+
+```sh
+# Basic usage
+$ curl -s https://api.github.com/users/tmc | json-to-struct -name=User
+
+# Extract repeated structs to reduce duplication
+$ cat data.json | json-to-struct -name=Data -extract-structs
+
+# Generate with field statistics comments
+$ cat data.json | json-to-struct -name=Data -stat-comments
+
+# Validate generated structs with roundtrip testing
+$ cat data.json | json-to-struct -name=Data -roundtrip
+
+# Process large datasets with streaming output
+$ cat large.json | json-to-struct -name=Data -stream
+
+# Custom field ordering by occurrence frequency
+$ cat data.json | json-to-struct -name=Data -field-order=common-first
 ```
 
 Related Work
