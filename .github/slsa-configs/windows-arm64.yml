@@ -1,0 +1,4 @@
+version: 1
+goos: windows
+goarch: arm64
+binary: json-to-struct-windows-arm64.exe

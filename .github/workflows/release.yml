@@ -1,0 +1,27 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: read-all
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - {os: linux, arch: amd64}
+          - {os: linux, arch: arm64}
+          - {os: darwin, arch: amd64}
+          - {os: darwin, arch: arm64}
+          - {os: windows, arch: amd64}
+          - {os: windows, arch: arm64}
+    permissions: {id-token: write, contents: write, actions: read}
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.0.0
+    with:
+      go-version: "1.24"
+      upload-assets: true
+      config-file: .github/slsa-configs/${{ matrix.os }}-${{ matrix.arch }}.yml
+      private-repository: true
+      draft-release: true

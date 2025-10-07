@@ -1,0 +1,4 @@
+version: 1
+goos: darwin
+goarch: arm64
+binary: json-to-struct-darwin-arm64

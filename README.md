@@ -1,6 +1,8 @@
 json-to-struct
 ======
 
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev/spec/v1.0/levels#build-l3)
+
 json-to-struct attempts to generate go struct definitions from json documents
 
 [Online Version Here](https://tmc.github.io/json-to-struct/)

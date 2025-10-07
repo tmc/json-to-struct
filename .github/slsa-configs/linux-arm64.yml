@@ -1,0 +1,4 @@
+version: 1
+goos: linux
+goarch: arm64
+binary: json-to-struct-linux-arm64
